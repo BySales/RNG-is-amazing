@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The RNG Game - Idle & Collect</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        
+        <header class="cabecalho-principal">
+            <div id="perfil-resumo" class="perfil-header">
+                <img id="img-avatar-mini" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Mandrake" alt="Avatar">
+                <div class="info-perfil">
+                    <span id="nome-jogador">Visitante</span>
+                    <small id="titulo-jogador">Novato</small>
+                </div>
+            </div>
+            
+            <div class="nav-central">
+                <h1>The RNG Game</h1>
+                <nav class="navegacao-principal">
+                    <button id="nav-loja" class="nav-button active">Loja</button>
+                    <button id="nav-inventario" class="nav-button">Inventário</button>
+                    <button id="nav-metas" class="nav-button">Metas</button>
+                    <button id="nav-album" class="nav-button">Álbum</button>
+                </nav>
+            </div>
+
+            <div class="painel-financeiro">
+                <span id="mostrador-renda">Renda/s: +<span id="valor-renda">0</span></span>
+                <button id="mostrador-grana">Grana: <span id="valor-grana">0</span></button>
+            </div>
+        </header>
+
+        <main id="content-area">
+
+            <section id="tela-loja" class="tela-ativa">
+                <p class="intro-loja">
+                    Aqui é onde o RNG acontece. Gaste sua Grana e torça para a sorte sorrir!
+                </p>
+                <div id="area-pacotes" class="area-botoes">
+                    </div>
+                
+                <div class="divisor"></div>
+
+                <h2>Resultado do Último Pacote</h2>
+                <div id="resultado">
+                    <p style="color: #888;">Nenhum pacote aberto ainda.</p>
+                </div>
+
+                <div class="divisor"></div>
+                
+                <h2>Pacotes para Comprar</h2>
+                <div class="area-botoes">
+                    <button id="comprar-pacote-a" class="botao-pacote">Comprar [Novos Rostos] <br><small>Comprar (100)</small></button>
+                    <button id="comprar-pacote-b" class="botao-pacote">Comprar [Pacote B] <br><small>Comprar (100)</small></button>
+                </div>
+                
+                <div class="divisor"></div>
+                
+                <h2>Abertura Automática (Auto-Abrir)</h2>
+                <div class="area-botoes">
+                    <button id="auto-abrir-pacote" class="botao-acao">
+                        Auto-Abrir (x1)
+                    </button>
+                    <button id="stop-auto-abrir" class="botao-perigo" disabled>
+                        Parar
+                    </button>
+                    <select id="quantidade-auto-abrir">
+                        <option value="1">x1</option>
+                        <option value="5">x5</option>
+                        <option value="10">x10</option>
+                        <option value="25">x25</option>
+                        <option value="999">Tudo</option>
+                    </select>
+                    <select id="tipo-auto-abrir">
+                        <option value="Novos Rostos">Novos Rostos</option>
+                        <option value="Pacote B">Pacote B</option>
+                    </select>
+                </div>
+                
+            </section>
+
+            <section id="tela-inventario" class="tela-escondida">
+                
+                <div class="secao-equipe">
+                    <div class="cabecalho-equipe">
+                        <h2>Equipe Ativa <span id="contador-equipe"></span></h2>
+                        <div class="botoes-inventario">
+                            <button id="btn-vender-duplicatas" class="botao-acao">Vender Duplicatas</button>
+                            <button id="btn-limpar-inventario" class="botao-perigo">Limpar Jogo</button>
+                        </div>
+                    </div>
+                    
+                    <div id="area-equipe" class="container-equipe">
+                        </div>
+                </div>
+
+                <div class="divisor"></div>
+                <h2>Meu Estoque de Cartas</h2>
+                <div id="area-inventario">
+                    </div>
+            </section>
+            
+            <section id="tela-metas" class="tela-escondida">
+                <h2>🎯 Mural de Metas e Recompensas</h2>
+                <p style="color: #ccc;">Bata as metas para destravar bônus permanentes e grana!</p>
+                <div id="area-metas">
+                    </div>
+            </section>
+
+            <section id="tela-album" class="tela-escondida">
+                <h2>Álbum Completo (Coleção)</h2>
+                <div id="area-album">
+                    </div>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="modal-perfil" class="modal-overlay tela-escondida">
+        <div class="modal-conteudo">
+            <button id="fechar-perfil" class="btn-fechar">×</button>
+            <img id="img-avatar-grande" class="avatar-grande" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Mandrake" alt="Avatar">
+            <h2 id="nome-jogador-modal">Visitante</h2>
+            <p>Seu Status: <span id="titulo-jogador-modal">Novato</span></p>
+            <p>Conquistas Desbloqueadas: <span id="conquistas-modal">0</span></p>
+            <div class="area-botoes">
+                <button id="btn-editar-perfil" class="botao-pacote">Editar Perfil</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal-carta-detalhe" class="modal-overlay tela-escondida">
+        <div class="modal-conteudo modal-carta-ajustado">
+            <button id="fechar-carta-detalhe" class="btn-fechar">×</button>
+            <div id="conteudo-carta-detalhe">
+                </div>
+        </div>
+    </div>
+
+    <div id="container-notificacoes"></div>
+
+    <script src="data.js"></script> 
+    <script src="script.js"></script> 
+</body>
+</html>
