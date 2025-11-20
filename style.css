@@ -3,7 +3,25 @@ body { background-color: #282c34; color: #f1faee; font-family: 'Poppins', sans-s
 #game-container { max-width: 1200px; margin: 0 auto; background-color: #20232a; min-height: 100vh; }
 
 /* --- HEADER (FIX PARA ALINHAMENTO) --- */
-.cabecalho-principal { display: flex; justify-content: space-between; align-items: center; padding: 10px 30px; background-color: #1a1c22; border-bottom: 2px solid #457b9d; }
+.cabecalho-principal {
+    /* O que já tinha mantém... */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 30px;
+    background-color: #1a1c22;
+    border-bottom: 2px solid #457b9d;
+
+    /* ...e adiciona esse KIT DE FIXAÇÃO aqui: */
+    position: fixed;           /* Trava o elemento na tela */
+    top: 0;                    /* Cola no teto */
+    left: 50%;                 /* Centraliza o ponto de partida no meio da tela */
+    transform: translateX(-50%); /* Puxa metade pra esquerda pra centralizar certinho */
+    width: 100%;               /* Garante que estica */
+    max-width: 1200px;         /* Respeita o tamanho do teu container do jogo */
+    z-index: 1000;             /* Garante que ele fica por cima de qualquer carta ou modal */
+    box-sizing: border-box;    /* Pra borda e padding não estourarem o tamanho */
+}
 
 .nav-central { display: flex; flex-direction: column; align-items: center; justify-content: center; } 
 
@@ -219,7 +237,10 @@ body { background-color: #282c34; color: #f1faee; font-family: 'Poppins', sans-s
 .nav-button.active { color: #fca311; border-bottom: 2px solid #fca311; background-color: #282c34; }
 
 /* --- CONTEÚDO --- */
-#content-area { padding: 20px 30px; }
+#content-area { 
+    padding: 20px 30px;
+    padding-top: 120px; /* Aumentamos aqui pra empurrar tudo mais pra baixo */
+}
 .tela-escondida { display: none; }
 .tela-ativa { display: block; animation: fadeIn 0.3s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -356,3 +377,128 @@ body { background-color: #282c34; color: #f1faee; font-family: 'Poppins', sans-s
 
 @keyframes animacaoAparecer { from { opacity: 0; transform: scale(0.7) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 #resultado .carta { animation: animacaoAparecer 0.4s ease-out backwards; }
+
+/* --- EFEITOS VISUAIS DE DROP (MANDRAKE FX) --- */
+
+/* ÉPICO: Chega pulsando roxo, estilo neon de balada */
+@keyframes entradaEpica {
+    0% { opacity: 0; transform: scale(0.5) rotate(-15deg); filter: brightness(0.5); }
+    60% { transform: scale(1.1) rotate(5deg); filter: brightness(1.3) drop-shadow(0 0 15px #a846a0); }
+    100% { opacity: 1; transform: scale(1) rotate(0); filter: brightness(1) drop-shadow(0 0 5px #a846a0); }
+}
+#resultado .carta.épico {
+    animation: entradaEpica 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55) backwards;
+    z-index: 10; /* Fica na frente das comuns se sobrepor */
+}
+
+/* LENDÁRIO: Cai do céu girando e brilha ouro puro */
+@keyframes entradaLendaria {
+    0% { opacity: 0; transform: translateY(-150px) scale(0.2) rotate(720deg); }
+    70% { transform: translateY(20px) scale(1.1); }
+    100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); box-shadow: 0 0 25px #fca311; }
+}
+#resultado .carta.lendário {
+    animation: entradaLendaria 1s ease-out backwards;
+    z-index: 20;
+    border-color: #fff; /* Borda branca rápida pra dar destaque */
+    box-shadow: 0 0 30px #fca311; /* Brilho extra */
+}
+
+/* MÍTICO: O bagulho fica doido, tremedeira na carta (Rumble) */
+@keyframes entradaMitica {
+    0% { opacity: 0; transform: scale(3); filter: blur(10px); }
+    20% { opacity: 1; transform: scale(1); filter: blur(0); }
+    30% { transform: translate(-5px, 5px) rotate(-5deg); }
+    40% { transform: translate(5px, -5px) rotate(5deg); }
+    50% { transform: translate(-5px, -5px) rotate(-5deg); }
+    60% { transform: translate(5px, 5px) rotate(5deg); }
+    100% { transform: translate(0, 0) rotate(0); }
+}
+#resultado .carta.mítico {
+    animation: entradaMitica 0.8s ease-in-out backwards;
+    z-index: 30;
+    box-shadow: 0 0 40px #e63946;
+}
+
+/* SECRETO: Mistério total... surge das sombras devagarzinho */
+@keyframes entradaSecreta {
+    0% { opacity: 0; filter: invert(1) grayscale(100%); transform: scale(0.8); }
+    50% { opacity: 0.5; filter: invert(0.5) grayscale(50%); box-shadow: 0 0 50px white; }
+    100% { opacity: 1; filter: invert(0) grayscale(0); transform: scale(1); box-shadow: 0 0 20px white; }
+}
+#resultado .carta.secreto {
+    animation: entradaSecreta 1.5s ease-in backwards;
+    z-index: 40;
+    border: 2px solid white;
+}
+/* --- LOJA ROTATIVA (MERCADO NEGRO) --- */
+.container-loja-rotativa {
+    background: linear-gradient(135deg, #1a0b1a 0%, #2d1b2e 100%);
+    border: 2px solid #a846a0;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 0 20px rgba(168, 70, 160, 0.3);
+}
+
+.cabecalho-loja-rotativa {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
+}
+
+.cabecalho-loja-rotativa h2 {
+    margin: 0;
+    color: #e0aaff;
+    text-shadow: 0 0 5px #a846a0;
+    font-size: 1.4rem;
+}
+
+.timer-loja {
+    background-color: #331e36;
+    color: #ff9e00;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-weight: bold;
+    border: 1px solid #ff9e00;
+}
+
+.vitrine-loja {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+/* CARD NA LOJA (Diferente do inventário) */
+.item-loja {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    padding: 10px;
+    width: 140px;
+    transition: transform 0.2s;
+}
+.item-loja:hover { transform: scale(1.05); background-color: rgba(255,255,255,0.05); }
+
+.btn-comprar-carta {
+    background-color: #2a9d8f;
+    color: white;
+    border: none;
+    width: 100%;
+    padding: 8px;
+    margin-top: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+.btn-comprar-carta:hover { background-color: #3bcbab; }
+.btn-comprar-carta:disabled { background-color: #555; cursor: not-allowed; }
+.preco-carta { color: #fca311; font-weight: bold; margin-bottom: 5px; display: block;}

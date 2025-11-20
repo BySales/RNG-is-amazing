@@ -7,7 +7,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const modalPerfil = document.getElementById('modal-perfil');
     const telaMetas = document.getElementById('tela-metas'); 
     
-    // NOVO MODAL
+    // MODAL DETALHE
     const modalCartaDetalhe = document.getElementById('modal-carta-detalhe');
     const fecharCartaDetalheBtn = document.getElementById('fechar-carta-detalhe');
     const conteudoCartaDetalhe = document.getElementById('conteudo-carta-detalhe');
@@ -42,7 +42,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const editarPerfilBtn = document.getElementById('btn-editar-perfil');
     const areaMetas = document.getElementById('area-metas'); 
 
-    // NOVO: Elementos de Auto-Abrir
+    // AUTO-ABRIR
     const autoAbrirBtn = document.getElementById('auto-abrir-pacote');
     const stopAutoAbrirBtn = document.getElementById('stop-auto-abrir');
     const qtdAutoAbrirSelect = document.getElementById('quantidade-auto-abrir');
@@ -57,6 +57,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const CHAVE_PERFIL = 'meuPerfilRNG'; 
     const CHAVE_CONQUISTAS = 'minhasConquistasRNG'; 
     
+    // Configs da Loja Diária
+    const CHAVE_LOJA_DIARIA = 'minhaLojaDiariaRNG';
+    const TEMPO_REFRESH = 15 * 60 * 1000; // 15 minutos
+    let dadosLoja = { ofertas: [], proximoRefresh: 0 };
+    
     let inventario = {}; 
     let inventarioPacotes = {};
     let equipe = []; 
@@ -69,8 +74,8 @@ window.addEventListener('DOMContentLoaded', () => {
     let conquistasDesbloqueadas = []; 
     let chancePacoteExtra = 0; 
     
-    let autoAbrirInterval = null; // Variável para controlar o loop de auto-abrir
-    let contagemRestante = 0;    // Quantidade de pacotes restantes para abrir
+    let autoAbrirInterval = null; 
+    let contagemRestante = 0;    
     
     const CUSTO_NORMAL = 100;
     const CUSTO_DESCONTO = 35;
@@ -79,13 +84,16 @@ window.addEventListener('DOMContentLoaded', () => {
     const CUSTOS_UPGRADE = { 1: 2, 2: 4, 3: 8, 4: 10 };
     const NIVEL_MAXIMO = 5;
     const PRECOS_VENDA = { 'comum': 1, 'raro': 5, 'épico': 20, 'lendário': 50, 'mítico': 100, 'secreto': 250 };
+    
+    // Preços para o Mercado Negro
+    const PRECOS_LOJA = { 'comum': 500, 'raro': 2500, 'épico': 10000, 'lendário': 75000, 'mítico': 500000, 'secreto': 2000000 };
 
     const RENDAS_BASE = {
         'comum': 1, 'raro': 5, 'épico': 15,
         'lendário': 50, 'mítico': 150, 'secreto': 500
     };
 
-    // FUNÇÃO HELPER: Retorna o texto da recompensa (movemos a lógica para cá)
+    // FUNÇÃO HELPER: Retorna o texto da recompensa
     function obterRecompensaTexto(id) {
         if (id === 1) return "Recompensa: +100 Grana";
         if (id === 2) return "Recompensa: +500 Grana";
@@ -113,6 +121,7 @@ window.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(CHAVE_EQUIPE, JSON.stringify(equipe));
         salvarPerfil(); 
         localStorage.setItem('chanceExtraRNG', chancePacoteExtra.toString()); 
+        salvarLoja(); // Salva o estado da loja também
     }
     
     function carregarTudo() {
@@ -146,16 +155,12 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function atualizarDisplayPerfil() {
-        // Header
         document.getElementById('nome-jogador').innerText = perfil.nome;
         document.getElementById('img-avatar-mini').src = perfil.avatar;
-        
-        // Modal
         document.getElementById('nome-jogador-modal').innerText = perfil.nome;
         document.getElementById('img-avatar-grande').src = perfil.avatar;
         document.getElementById('conquistas-modal').innerText = conquistasDesbloqueadas.length; 
         
-        // Título baseado em conquistas
         const total = conquistasDesbloqueadas.length;
         let titulo = "Novato";
         if(total >= 1) titulo = "Apostador";
@@ -165,20 +170,15 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('titulo-jogador-modal').innerText = titulo;
     }
 
-    // LÓGICA DE EDIÇÃO DE PERFIL COM URL (FOTO PERSONALIZADA)
     function abrirEditorPerfil() {
         const novoNome = prompt("Qual é o seu vulgo (nome)?", perfil.nome);
-        
-        if (novoNome) {
-            perfil.nome = novoNome;
-        }
+        if (novoNome) perfil.nome = novoNome;
 
         const novaFoto = prompt("Cole o ENDEREÇO da sua foto de perfil (URL completa):", perfil.avatar);
         if (novaFoto) {
-            if (novaFoto.startsWith('http')) {
-                perfil.avatar = novaFoto;
-            } else {
-                mostrarNotificacao("URL de foto inválida, usando o avatar gerado/anterior.", "erro");
+            if (novaFoto.startsWith('http')) perfil.avatar = novaFoto;
+            else {
+                mostrarNotificacao("URL inválida, usando avatar padrão.", "erro");
                 perfil.avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${perfil.nome}`; 
             }
         } else if (novoNome) {
@@ -187,22 +187,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
         salvarPerfil();
         atualizarDisplayPerfil();
-        mostrarNotificacao("Perfil atualizado com sucesso!", "sucesso");
+        mostrarNotificacao("Perfil atualizado!", "sucesso");
     }
 
     // LÓGICA DE CHECAGEM DE METAS 
     function checarConquistas() {
         let houveMudanca = false;
         
-        // O bancoConquistas agora é global e vem de data.js
         bancoConquistas.forEach(cq => {
-            // Atualiza a descrição da meta 'Abre-Pacotes' antes de checar (para mostrar progresso)
             if (cq.id === 5) {
-                const abertos = (inventarioPacotes["Novos Rostos_aberto"] || 0) + (inventarioPacotes["Pacote B_aberto"] || 0);
+                const abertos = (inventarioPacotes["Novos Rostos_aberto"] || 0) + (inventarioPacotes["Inusitado_aberto"] || 0);
                 cq.desc = `Abra 2000 cartas. (Progresso: ${abertos}/2000)`;
             }
 
-            // O cq.condicao() usa variáveis globais (grana, inventario, equipe)
             if (!conquistasDesbloqueadas.includes(cq.id) && cq.condicao()) {
                 conquistasDesbloqueadas.push(cq.id);
                 cq.recompensa(); 
@@ -220,17 +217,14 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // RENDERIZAÇÃO NA TELA DEDICADA (#area-metas)
     function renderizarMetas() {
         areaMetas.innerHTML = ''; 
-        
-        // O bancoConquistas agora é global e vem de data.js
         bancoConquistas.forEach(cq => {
             const tem = conquistasDesbloqueadas.includes(cq.id);
             const statusClass = tem ? 'desbloqueada' : '';
             const tagClass = tem ? 'tag-concluida' : 'tag-pendente';
             const statusText = tem ? 'CONCLUÍDA' : 'PENDENTE';
-            const recompensaText = obterRecompensaTexto(cq.id); // Esta função ainda está em script.js
+            const recompensaText = obterRecompensaTexto(cq.id);
 
             const div = document.createElement('div');
             div.className = `meta-card ${statusClass}`;
@@ -251,9 +245,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- LÓGICA DO MODAL DE DETALHES DA CARTA ---
-    // A função obterCartaPorId foi movida para data.js e está globalmente disponível.
     function abrirDetalheCarta(id) {
-        const carta = obterCartaPorId(id); // <--- AGORA VEM DE data.js
+        const carta = obterCartaPorId(id);
         
         if (!carta) {
             if(document.getElementById('tela-album').classList.contains('tela-ativa')) {
@@ -267,7 +260,6 @@ window.addEventListener('DOMContentLoaded', () => {
         const i = inventario[id];
         const nivel = i ? `Nvl. ${i.nivel}` : 'Nvl. 1'; 
         const status = i ? `Em posse (x${i.quantidade})` : 'Não obtida';
-        
         const raridadeClass = carta.raridade.toLowerCase().replace('é', 'e');
 
         conteudoCartaDetalhe.innerHTML = `
@@ -277,7 +269,6 @@ window.addEventListener('DOMContentLoaded', () => {
             <p id="detalhe-descricao">${carta.descricao}</p>
             <p id="detalhe-artista">Arte por: ${carta.artista}</p>
         `;
-
         modalCartaDetalhe.classList.remove('tela-escondida');
     }
 
@@ -286,9 +277,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const temCartas = Object.keys(inventario).length > 0;
         const temPacotes = Object.keys(inventarioPacotes).length > 0;
         if (!temCartas && !temPacotes) {
-            // O bancoDeCartas agora é global e vem de data.js
-            const cartaInicial = bancoDeCartas.find(c => c.id === 101); // Pega Katara Comum como inicial fixa
-            
+            const cartaInicial = bancoDeCartas.find(c => c.id === 101); 
             inventario[cartaInicial.id] = { ...cartaInicial, quantidade: 1, nivel: 1 };
             equipe.push(cartaInicial.id.toString());
             salvarTudo();
@@ -348,19 +337,146 @@ window.addEventListener('DOMContentLoaded', () => {
             salvarGrana();
             atualizarDisplayGrana();
         }
-        // Checa metas a cada segundo
         checarConquistas();
     }, 1000);
     function salvarGrana() { localStorage.setItem(CHAVE_GRANA, Math.floor(grana).toString()); }
     
+    // --- SISTEMA DE LOJA ROTATIVA (MERCADO NEGRO) ---
+    function carregarLojaDiaria() {
+        const salvo = localStorage.getItem(CHAVE_LOJA_DIARIA);
+        const agora = Date.now();
+
+        if (salvo) {
+            dadosLoja = JSON.parse(salvo);
+        }
+
+        // Se não tiver dados ou o tempo já passou, gera nova loja
+        if (!dadosLoja.proximoRefresh || agora >= dadosLoja.proximoRefresh) {
+            gerarNovaLoja();
+        } else {
+            renderizarLojaDiaria();
+        }
+        
+        atualizarTimerLoja();
+        setInterval(atualizarTimerLoja, 1000);
+    }
+
+    function gerarNovaLoja() {
+        const agora = Date.now();
+        dadosLoja.proximoRefresh = agora + TEMPO_REFRESH;
+        dadosLoja.ofertas = [];
+
+        for (let i = 0; i < 3; i++) {
+            let cartaSorteada;
+            
+            // 30% de chance de vir carta exclusiva do Mercado Negro
+            if (Math.random() < 0.3) {
+                const exclusivas = bancoDeCartas.filter(c => c.set === "Mercado Negro");
+                cartaSorteada = exclusivas[Math.floor(Math.random() * exclusivas.length)];
+            } else {
+                // Senão pega qualquer uma (menos as exclusivas)
+                const normais = bancoDeCartas.filter(c => c.set !== "Mercado Negro");
+                cartaSorteada = normais[Math.floor(Math.random() * normais.length)];
+            }
+
+            dadosLoja.ofertas.push({ id: cartaSorteada.id, comprado: false });
+        }
+
+        salvarLoja();
+        renderizarLojaDiaria();
+        mostrarNotificacao("🔄 Mercado Negro atualizado! Novas ofertas.", "info");
+    }
+
+    function salvarLoja() {
+        localStorage.setItem(CHAVE_LOJA_DIARIA, JSON.stringify(dadosLoja));
+    }
+
+    function renderizarLojaDiaria() {
+        const container = document.getElementById('area-loja-diaria');
+        container.innerHTML = '';
+
+        dadosLoja.ofertas.forEach((oferta, index) => {
+            const cartaInfo = obterCartaPorId(oferta.id);
+            if (!cartaInfo) return; // Segurança
+
+            const preco = PRECOS_LOJA[cartaInfo.raridade.toLowerCase()] || 1000;
+            
+            const div = document.createElement('div');
+            div.className = 'item-loja';
+            
+            const estilo = oferta.comprado ? 'filter: grayscale(100%); opacity: 0.6;' : '';
+            const textoBtn = oferta.comprado ? 'Esgotado' : `Comprar`;
+            const disabled = oferta.comprado || grana < preco ? 'disabled' : '';
+
+            div.innerHTML = `
+                <div class="carta ${cartaInfo.raridade.toLowerCase()}" style="transform: scale(0.8); margin-bottom: -30px; ${estilo}">
+                    <img src="${cartaInfo.imagem}" class="imagem-carta">
+                    <div class="area-info-gradiente">
+                        <span class="nome-carta-gradiente">${cartaInfo.nome}</span>
+                        <span class="raridade-carta-gradiente">[${cartaInfo.raridade}]</span>
+                    </div>
+                </div>
+                <div style="text-align:center; width:100%; z-index:5;">
+                    <span class="preco-carta">💰 ${preco}</span>
+                    <button class="btn-comprar-carta" ${disabled} onclick="comprarCartaLoja(${index}, ${preco})">
+                        ${textoBtn}
+                    </button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    window.comprarCartaLoja = function(index, preco) {
+        if (grana < preco) {
+            mostrarNotificacao("Sem grana, parceiro!", "erro");
+            return;
+        }
+        
+        const oferta = dadosLoja.ofertas[index];
+        if (oferta.comprado) return;
+
+        grana -= preco;
+        oferta.comprado = true;
+        
+        const cartaReal = obterCartaPorId(oferta.id);
+        if (inventario[cartaReal.id]) {
+            inventario[cartaReal.id].quantidade++;
+        } else {
+            inventario[cartaReal.id] = { ...cartaReal, quantidade: 1, nivel: 1 };
+        }
+
+        salvarLoja();
+        salvarTudo();
+        atualizarDisplayGrana();
+        renderizarLojaDiaria();
+        atualizarDisplayInventario();
+        mostrarNotificacao(`Negócio fechado! ${cartaReal.nome} obtida.`, "sucesso");
+    }
+
+    function atualizarTimerLoja() {
+        const agora = Date.now();
+        let restante = dadosLoja.proximoRefresh - agora;
+
+        if (restante <= 0) {
+            gerarNovaLoja();
+            restante = TEMPO_REFRESH;
+        }
+
+        const minutos = Math.floor((restante % (1000 * 60 * 60)) / (1000 * 60));
+        const segundos = Math.floor((restante % (1000 * 60)) / 1000);
+        
+        document.getElementById('tempo-restante-loja').innerText = 
+            `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+    }
+
     // --- LÓGICA DE ABERTURA AUTOMÁTICA ---
     function iniciarAutoAbrir() {
         const quantidadeSelecionada = parseInt(qtdAutoAbrirSelect.value);
-        const tipoPacote = tipoAutoAbrirSelect.value;
+        const tipoPacote = tipoAutoAbrirSelect.value; 
         
         let pacotesDisponiveis = inventarioPacotes[tipoPacote] || 0;
         
-        // Se a opção for 'Tudo', pega o máximo disponível
         contagemRestante = (quantidadeSelecionada === 999) 
             ? pacotesDisponiveis
             : Math.min(quantidadeSelecionada, pacotesDisponiveis);
@@ -370,28 +486,20 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Desabilita botões de controle
         autoAbrirBtn.disabled = true;
         stopAutoAbrirBtn.disabled = false;
-        
-        // Limpa o resultado anterior
         areaResultado.innerHTML = '';
         mostrarNotificacao(`Auto-Abrir ${contagemRestante}x Pacotes ${tipoPacote} iniciado!`, "info");
         
-        // Inicia o loop de abertura a cada 500ms
         autoAbrirInterval = setInterval(() => {
             if (contagemRestante > 0) {
-                // A função abrirPacote já decrementa e salva o inventário
-                abrirPacote(tipoPacote, true); // O 'true' indica abertura automática
+                abrirPacote(tipoPacote, true);
                 contagemRestante--;
-                
-                // CORREÇÃO: Exibe a contagem restante de PACOTES
                 autoAbrirBtn.textContent = `Abrindo (${contagemRestante} pacotes restantes)`;
-
             } else {
                 pararAutoAbrir("Concluído!");
             }
-        }, 500); // 500ms (meio segundo) entre cada abertura
+        }, 500); 
     }
 
     function pararAutoAbrir(motivo = "Parado pelo usuário.") {
@@ -401,12 +509,9 @@ window.addEventListener('DOMContentLoaded', () => {
         
         autoAbrirBtn.disabled = false;
         stopAutoAbrirBtn.disabled = true;
-        // CORREÇÃO: Volta ao texto padrão
         autoAbrirBtn.textContent = `Auto-Abrir (x${qtdAutoAbrirSelect.value})`;
 
         mostrarNotificacao(`Auto-Abrir finalizado. ${motivo}`, "info");
-
-        // Após o auto-abrir, precisamos forçar a atualização visual de novo
         atualizarDisplayPacotes();
         atualizarDisplayInventario();
     }
@@ -420,16 +525,18 @@ window.addEventListener('DOMContentLoaded', () => {
         
         botaoComprarPacoteA.innerHTML = `Comprar [Novos Rostos] <br><small>${textoBotao}</small>`;
         botaoComprarPacoteA.disabled = !pode;
-        botaoComprarPacoteB.innerHTML = `Comprar [Pacote B] <br><small>${textoBotao}</small>`;
+        
+        botaoComprarPacoteB.innerHTML = `Comprar [Inusitado] <br><small>${textoBotao}</small>`;
         botaoComprarPacoteB.disabled = !pode;
     }
 
     function atualizarDisplayPacotes() {
         areaPacotes.innerHTML = '';
         const a = inventarioPacotes["Novos Rostos"] || 0;
-        const b = inventarioPacotes["Pacote B"] || 0;
+        const b = inventarioPacotes["Inusitado"] || 0; 
+        
         areaPacotes.innerHTML += `<button id="abrir-pacote-a" class="botao-abrir-pacote" ${a===0?'disabled':''}>Abrir [Novos Rostos] <span>(x${a})</span></button>`;
-        areaPacotes.innerHTML += `<button id="abrir-pacote-b" class="botao-abrir-pacote" ${b===0?'disabled':''}>Abrir [Pacote B] <span>(x${b})</span></button>`;
+        areaPacotes.innerHTML += `<button id="abrir-pacote-b" class="botao-abrir-pacote" ${b===0?'disabled':''}>Abrir [Inusitado] <span>(x${b})</span></button>`;
     }
 
     function atualizarDisplayEquipe() {
@@ -513,7 +620,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function atualizarDisplayAlbum() {
         areaAlbum.innerHTML = ''; 
-        // O bancoDeCartas agora é global e vem de data.js
         bancoDeCartas.forEach(b => {
             const i = inventario[b.id];
             const descoberto = i !== undefined;
@@ -544,12 +650,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // --- AÇÕES ---
     function sortearRaridade() {
+        // VOLTAMOS AO MODO ORIGINAL E JUSTO (SEM HACK)
         const r = Math.random() * 100;
-        if (r <= 60) return "Comum"; else if (r <= 85) return "Raro"; else if (r <= 95) return "Épico";
-        else if (r <= 99) return "Lendário"; else if (r <= 99.9) return "Mítico"; else return "Secreto";
+        if (r <= 60) return "Comum"; 
+        else if (r <= 85) return "Raro"; 
+        else if (r <= 95) return "Épico";
+        else if (r <= 99) return "Lendário"; 
+        else if (r <= 99.9) return "Mítico"; 
+        else return "Secreto";
     }
     function pegarCarta(raridade, set) {
-        // O bancoDeCartas agora é global e vem de data.js
         const pool = bancoDeCartas.filter(c => c.raridade === raridade && c.set === set);
         if (pool.length === 0) return pegarCarta("Comum", set);
         return {...pool[Math.floor(Math.random() * pool.length)]};
@@ -567,7 +677,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     let animando = false;
     function abrirPacote(set, isAuto = false) {
-        // Se não for automático, checa a animação normal
         if (!isAuto && animando) return;
         
         if (!inventarioPacotes[set] || inventarioPacotes[set] <= 0) {
@@ -579,14 +688,12 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        animando = !isAuto; // Se for auto, não anima. Se for manual, anima.
+        animando = !isAuto; 
         inventarioPacotes[set]--;
         
-        // Contador para a meta 'Abre-Pacotes'
         inventarioPacotes[`${set}_aberto`] = (inventarioPacotes[`${set}_aberto`] || 0) + 1;
 
         if (!isAuto) {
-            // Desabilita botões apenas no modo manual
             botaoComprarPacoteA.disabled = true;
             botaoComprarPacoteB.disabled = true;
         }
@@ -595,17 +702,14 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!isAuto) atualizarDisplayPacotes();
         areaResultado.innerHTML = '';
         
-        // ABRINDO O PACOTE BASE (5 cartas)
         const pct = [pegarCarta("Comum",set), pegarCarta("Comum",set), pegarCarta("Comum",set), pegarCarta("Raro",set)];
         pct.push(pegarCarta(sortearRaridade(), set));
         
-        // CHECAGEM DO PRÊMIO DE 33% (se desbloqueado)
         if (chancePacoteExtra > 0 && Math.random() * 100 < chancePacoteExtra) {
-            pct.push(pegarCarta(sortearRaridade(), set)); // Adiciona uma sexta carta
+            pct.push(pegarCarta(sortearRaridade(), set));
             if (!isAuto) mostrarNotificacao(`⭐ BÔNUS! Carta extra (${chancePacoteExtra}%)!`, "info");
         }
         
-        // ESTE LOOP ADICIONA TODAS AS CARTAS AO INVENTÁRIO DE FATO
         pct.forEach(c => {
             const id = c.id;
             if (inventario[id]) inventario[id].quantidade++;
@@ -614,32 +718,23 @@ window.addEventListener('DOMContentLoaded', () => {
         salvarTudo();
         calcularRendaTotal(); 
 
-        // NOVO FEEDBACK EXPLÍCITO NO MODO AUTO
         if (isAuto) {
             mostrarNotificacao(`Inventário atualizado! +${pct.length} Cartas deste pacote.`, "sucesso");
-        }
-
-
-        // RENDERIZAÇÃO: Rápida no auto, animada no manual
-        if (isAuto) {
-            // No modo automático, apenas renderiza a última carta aberta (ou a mais rara)
             const maisRara = pct.sort((a,b) => RENDAS_BASE[b.raridade.toLowerCase()] - RENDAS_BASE[a.raridade.toLowerCase()])[0];
             
             const nova = document.createElement('div');
             nova.classList.add('carta', maisRara.raridade.toLowerCase());
             nova.innerHTML = `<img src="${maisRara.imagem}" class="imagem-carta"><div class="area-info-gradiente"><span class="nome-carta-gradiente">${maisRara.nome}</span><span class="raridade-carta-gradiente">[${maisRara.raridade}]</span></div>`;
             areaResultado.appendChild(nova);
-            
-            // Limita a exibição a 1 carta
             while (areaResultado.children.length > 1) {
                 areaResultado.removeChild(areaResultado.firstChild);
             }
 
         } else {
-            // Modo manual: exibe todas as cartas com animação
             pct.forEach((c, i) => {
                 const nova = document.createElement('div');
                 nova.classList.add('carta', c.raridade.toLowerCase());
+                // EFEITO VISUAL: As animações CSS que a gente criou vão ativar aqui
                 nova.innerHTML = `<img src="${c.imagem}" class="imagem-carta"><div class="area-info-gradiente"><span class="nome-carta-gradiente">${c.nome}</span><span class="raridade-carta-gradiente">[${c.raridade}]</span></div>`;
                 setTimeout(() => areaResultado.appendChild(nova), i * 300);
             });
@@ -668,11 +763,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- VIGIAS ---
-    // ATUALIZADO: Passa o novo nome do pacote para a compra
     botaoComprarPacoteA.addEventListener('click', () => comprarPacote("Novos Rostos"));
-    botaoComprarPacoteB.addEventListener('click', () => comprarPacote("Pacote B"));
+    botaoComprarPacoteB.addEventListener('click', () => comprarPacote("Inusitado"));
 
-    // Listeners do Perfil
     perfilResumo.addEventListener('click', () => {
         modalPerfil.classList.remove('tela-escondida');
     });
@@ -683,23 +776,18 @@ window.addEventListener('DOMContentLoaded', () => {
 
     editarPerfilBtn.addEventListener('click', abrirEditorPerfil);
     
-    // Listener para fechar o modal de detalhes da carta
     fecharCartaDetalheBtn.addEventListener('click', () => {
         modalCartaDetalhe.classList.add('tela-escondida');
     });
     
-    // NOVO: Listeners de Auto-Abrir
     autoAbrirBtn.addEventListener('click', iniciarAutoAbrir);
     stopAutoAbrirBtn.addEventListener('click', () => pararAutoAbrir());
     
-    // Atualiza o texto do botão quando a quantidade selecionada muda
     qtdAutoAbrirSelect.addEventListener('change', () => {
         autoAbrirBtn.textContent = `Auto-Abrir (x${qtdAutoAbrirSelect.value})`;
     });
 
-    // FUNÇÃO IR PARA TELA
     function irParaTela(id) {
-        // Incluindo a nova tela na lista de telas
         [telaLoja, telaInventario, telaMetas, telaAlbum].forEach(t => t.classList.add('tela-escondida'));
         [telaLoja, telaInventario, telaMetas, telaAlbum].forEach(t => t.classList.remove('tela-ativa'));
         navButtons.forEach(b => b.classList.remove('active'));
@@ -713,7 +801,6 @@ window.addEventListener('DOMContentLoaded', () => {
         if (id === 'tela-album') { navAlbum.classList.add('active'); atualizarDisplayAlbum(); }
     }
 
-    // LISTENERS DE NAVEGAÇÃO
     navLoja.addEventListener('click', () => irParaTela('tela-loja'));
     navInventario.addEventListener('click', () => irParaTela('tela-inventario'));
     navMetas.addEventListener('click', () => irParaTela('tela-metas')); 
@@ -721,11 +808,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     btnLimparInventario.addEventListener('click', () => {
         if (confirm("RESETAR TUDO?")) {
-            // CORREÇÃO: Força o reset da grana antes de recarregar
             localStorage.clear(); 
             localStorage.setItem(CHAVE_GRANA, '0');
             grana = 0; 
-            
             location.reload();
         }
     });
@@ -752,16 +837,13 @@ window.addEventListener('DOMContentLoaded', () => {
         } else mostrarNotificacao("Nada para vender.", "info");
     });
     
-    // Delegação de eventos para Inventário, Equipe e Álbum (agora também para abrir o Modal)
     function gerenciarCliquesCartas(e) {
         const btnUpar = e.target.closest('.btn-upar');
         const btnEquipar = e.target.closest('.btn-equipar');
-        const cartaDiv = e.target.closest('.carta'); // Pega o card clicado
+        const cartaDiv = e.target.closest('.carta'); 
         
-        // 1. Lógica de Ação (Upgrade/Equipar)
         if (btnUpar && !btnUpar.disabled) {
             aprimorarCarta(btnUpar.dataset.id);
-            // Evita abrir o modal de detalhe ao upar
             e.stopPropagation(); 
             return;
         }
@@ -771,18 +853,15 @@ window.addEventListener('DOMContentLoaded', () => {
             } else {
                 equiparCarta(btnEquipar.dataset.id);
             }
-            // Evita abrir o modal de detalhe ao equipar/remover
             e.stopPropagation();
             return;
         }
         
-        // 2. Lógica de Detalhe (Abrir Modal)
         if (cartaDiv && cartaDiv.dataset.id) {
             abrirDetalheCarta(cartaDiv.dataset.id);
         }
     }
     
-    // Ouve os cliques em Inventário, Equipe e Álbum
     areaInventario.addEventListener('click', gerenciarCliquesCartas);
     areaEquipe.addEventListener('click', gerenciarCliquesCartas);
     areaAlbum.addEventListener('click', gerenciarCliquesCartas);
@@ -790,15 +869,15 @@ window.addEventListener('DOMContentLoaded', () => {
     areaPacotes.addEventListener('click', (e) => {
         const btn = e.target.closest('.botao-abrir-pacote');
         if (btn && !btn.disabled) {
-            // ATUALIZADO: Checa o ID do botão para abrir o pacote
             if (btn.id.includes('pacote-a')) abrirPacote("Novos Rostos");
-            if (btn.id.includes('pacote-b')) abrirPacote("Pacote B");
+            if (btn.id.includes('pacote-b')) abrirPacote("Inusitado");
         }
     });
 
     // INIT
     carregarTudo();
     checarNovoJogador();
+    carregarLojaDiaria(); // CARREGA O MERCADO NEGRO
     calcularRendaTotal(); 
     atualizarDisplayInventario(); 
     atualizarDisplayEquipe();
