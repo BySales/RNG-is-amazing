@@ -17,17 +17,17 @@
                 <img id="img-avatar-mini" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Mandrake" alt="Avatar">
                 <div class="info-perfil">
                     <span id="nome-jogador">Visitante</span>
-                    <small id="titulo-jogador">Novato</small>
                 </div>
             </div>
             
             <div class="nav-central">
                 <h1>The RNG Game</h1>
                 <nav class="navegacao-principal">
-                    <button id="nav-loja" class="nav-button active">Loja</button>
+                    <button id="nav-loja" class="nav-button">Loja</button>
+                    <button id="nav-inicio" class="nav-button active">Início</button>
                     <button id="nav-inventario" class="nav-button">Inventário</button>
-                    <button id="nav-metas" class="nav-button">Metas</button>
                     <button id="nav-album" class="nav-button">Álbum</button>
+                    <button id="nav-metas" class="nav-button">Conquistas</button>
                 </nav>
             </div>
 
@@ -39,113 +39,153 @@
 
         <main id="content-area">
 
-            <section id="tela-loja" class="tela-ativa">
-                <p class="intro-loja">
-                    Aqui é onde o RNG acontece. Gaste sua Grana e torça para a sorte sorrir!
-                </p>
-
-                <div class="container-loja-rotativa">
-                    <div class="cabecalho-loja-rotativa">
-                        <h2>🔥 Mercado Negro 🔥</h2>
-                        <span class="timer-loja">Renova em: <span id="tempo-restante-loja">15:00</span></span>
+            <section id="tela-inicio" class="tela-ativa">
+                
+                <div class="area-gps" style="text-align: center; margin-bottom: 20px; padding: 15px; background: #2a3e30; border: 1px solid #457b9d; border-radius: 10px;">
+                    <h3 style="margin: 0 0 10px 0; color: #80ff80;">📍 Localização Atual</h3>
+                    <div style="display: flex; justify-content: center; gap: 10px; align-items: center;">
+                        <select id="seletor-zona" style="padding: 10px; border-radius: 5px; background: #1a1c22; color: white; border: 1px solid #555; font-size: 1rem;">
+                            </select>
+                        <button id="btn-desbloquear-zona" class="botao-acao" style="display:none;">Desbloquear</button>
                     </div>
-                    <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">Cartas exclusivas e diretas. Comprou, levou.</p>
+                    <p id="desc-zona" style="font-size: 0.9rem; color: #ccc; margin-top: 5px;">...</p>
+                </div>
+
+                <div class="divisor"></div>
+
+                <div style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 15px; border: 1px dashed #555;">
+                    <h2 style="margin-top: 0;">Seus Pacotes</h2>
                     
-                    <div id="area-loja-diaria" class="vitrine-loja">
-                        <p>Carregando ofertas...</p>
+                    <div id="area-pacotes" class="area-botoes" style="min-height: 50px;">
+                        </div>
+
+                    <div class="area-botoes" style="justify-content: center; margin-top: 10px; border-top: 1px solid #444; padding-top: 15px;">
+                        <span style="color:#aaa; align-self:center; margin-right:10px; font-size: 0.9rem;">Modo Automático:</span>
+                        <button id="auto-abrir-pacote" class="botao-acao">Iniciar</button>
+                        <button id="stop-auto-abrir" class="botao-perigo" disabled>Parar</button>
+                        <select id="quantidade-auto-abrir" style="padding: 5px; background: #222; color: white; border: 1px solid #555; border-radius: 5px;">
+                            <option value="1">x1</option>
+                            <option value="5">x5</option>
+                            <option value="10">x10</option>
+                            <option value="999">Tudo</option>
+                        </select>
                     </div>
                 </div>
-                <div class="divisor"></div>
 
-                <div id="area-pacotes" class="area-botoes">
+                <div class="divisor"></div>
+                
+                <h2>Últimas Aquisições</h2>
+                <div id="resultado" style="min-height: 100px;">
+                    <p style="color: #888;">O histórico aparecerá aqui.</p>
+                </div>
+
+                <div style="height: 350px;"></div> 
+
+                <div id="painel-time-fixo">
+                    <div id="area-equipe-home" class="container-equipe">
+                        </div>
+                </div>
+
+            </section>
+
+            <section id="tela-loja" class="tela-escondida">
+                
+                <div class="container-loja-rotativa fechado" id="container-mercado">
+                    <div class="cabecalho-loja-rotativa" id="btn-toggle-mercado">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="seta-mercado">▶</span>
+                            <h2>🔥 Mercado Negro 🔥</h2>
+                        </div>
+                        <span class="timer-loja">Renova: <span id="tempo-restante-loja">--:--</span></span>
+                    </div>
+                    <div class="conteudo-mercado-wrapper">
+                        <p style="font-size: 0.8rem; color: #aaa; margin: 10px 0;">Cartas exclusivas e diretas. Comprou, levou.</p>
+                        <div id="area-loja-diaria" class="vitrine-loja">
+                            <p>Carregando ofertas...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="divisor"></div>
+                
+                <h2 id="titulo-pacotes-zona">Pacotes da Zona Atual</h2>
+                <div id="area-compra-zona" class="area-botoes">
                     </div>
                 
                 <div class="divisor"></div>
+                <p style="color: #888; font-size: 0.8rem;">Dica: Seus pacotes comprados vão para a tela Início.</p>
 
-                <h2>Resultado do Último Pacote</h2>
-                <div id="resultado">
-                    <p style="color: #888;">Nenhum pacote aberto ainda.</p>
-                </div>
-
-                <div class="divisor"></div>
-                
-                <h2>Pacotes para Comprar</h2>
-                <div class="area-botoes">
-                    <button id="comprar-pacote-a" class="botao-pacote">Comprar [Novos Rostos] <br><small>Comprar (100)</small></button>
-                    <button id="comprar-pacote-b" class="botao-pacote">Comprar [Inusitado] <br><small>Comprar (100)</small></button>
-                </div>
-                
-                <div class="divisor"></div>
-                
-                <h2>Abertura Automática (Auto-Abrir)</h2>
-                <div class="area-botoes">
-                    <button id="auto-abrir-pacote" class="botao-acao">
-                        Auto-Abrir (x1)
-                    </button>
-                    <button id="stop-auto-abrir" class="botao-perigo" disabled>
-                        Parar
-                    </button>
-                    <select id="quantidade-auto-abrir">
-                        <option value="1">x1</option>
-                        <option value="5">x5</option>
-                        <option value="10">x10</option>
-                        <option value="25">x25</option>
-                        <option value="999">Tudo</option>
-                    </select>
-                    <select id="tipo-auto-abrir">
-                        <option value="Novos Rostos">Novos Rostos</option>
-                        <option value="Inusitado">Inusitado</option>
-                    </select>
-                </div>
-                
             </section>
 
             <section id="tela-inventario" class="tela-escondida">
                 
+                <div class="cabecalho-inventario" style="margin-bottom: 20px;">
+                    <h2>Gestão de Equipe</h2>
+                </div>
+
                 <div class="secao-equipe">
                     <div class="cabecalho-equipe">
-                        <h2>Equipe Ativa <span id="contador-equipe"></span></h2>
+                        <h2>Time Ativo <span id="contador-equipe"></span></h2>
                         <div class="botoes-inventario">
                             <button id="btn-vender-duplicatas" class="botao-acao">Vender Duplicatas</button>
                             <button id="btn-limpar-inventario" class="botao-perigo">Limpar Jogo</button>
                         </div>
                     </div>
-                    
                     <div id="area-equipe" class="container-equipe">
                         </div>
                 </div>
 
                 <div class="divisor"></div>
-                <h2>Meu Estoque de Cartas</h2>
+
+                <h2>Todas as Cartas</h2>
                 <div id="area-inventario">
                     </div>
             </section>
             
             <section id="tela-metas" class="tela-escondida">
-                <h2>🎯 Mural de Metas e Recompensas</h2>
-                <p style="color: #ccc;">Bata as metas para destravar bônus permanentes e grana!</p>
-                <div id="area-metas">
-                    </div>
+                <h2>🎯 Conquistas e Recompensas</h2>
+                <div id="area-metas"></div>
             </section>
 
             <section id="tela-album" class="tela-escondida">
-                <h2>Álbum Completo (Coleção)</h2>
-                <div id="area-album">
-                    </div>
+                <h2>Coleção Completa</h2>
+                <div id="area-album"></div>
             </section>
 
         </main>
     </div>
 
+    <div id="modal-abertura-pacote" class="modal-overlay tela-escondida" style="background: rgba(0,0,0,0.95); z-index: 20000;">
+        <div class="conteudo-abertura">
+            <h2 id="titulo-abertura" style="color: #fca311; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px;">Sorteando...</h2>
+            
+            <div class="palco-carta">
+                <div id="carta-animada" class="carta-gigante">
+                    <img id="img-carta-animada" src="imagens/placeholder.png" alt="Carta">
+                    <div id="info-carta-animada" class="info-animada tela-escondida">
+                        <h3 id="nome-carta-animada">Nome da Carta</h3>
+                        <span id="raridade-carta-animada">Raridade</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controles-abertura" style="margin-top: 30px;">
+                <button id="btn-proxima-carta" class="botao-abrir-pacote tela-escondida">PRÓXIMA CARTA ▶</button>
+                <button id="btn-abrir-outro" class="botao-acao tela-escondida">ABRIR OUTRO ↻</button>
+                <button id="btn-fechar-abertura" class="botao-pacote tela-escondida">COLETAR TUDO</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-perfil" class="modal-overlay tela-escondida">
         <div class="modal-conteudo">
             <button id="fechar-perfil" class="btn-fechar">×</button>
-            <img id="img-avatar-grande" class="avatar-grande" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Mandrake" alt="Avatar">
-            <h2 id="nome-jogador-modal">Visitante</h2>
-            <p>Seu Status: <span id="titulo-jogador-modal">Novato</span></p>
-            <p>Conquistas Desbloqueadas: <span id="conquistas-modal">0</span></p>
+            <img id="img-avatar-grande" class="avatar-grande" src="" alt="Avatar">
+            <h2 id="nome-jogador-modal"></h2>
+            <p>Status: <span id="titulo-jogador-modal"></span></p>
+            <p>Conquistas: <span id="conquistas-modal"></span></p>
             <div class="area-botoes">
-                <button id="btn-editar-perfil" class="botao-pacote">Editar Perfil</button>
+                <button id="btn-editar-perfil" class="botao-pacote">Editar</button>
             </div>
         </div>
     </div>
@@ -153,8 +193,7 @@
     <div id="modal-carta-detalhe" class="modal-overlay tela-escondida">
         <div class="modal-conteudo modal-carta-ajustado">
             <button id="fechar-carta-detalhe" class="btn-fechar">×</button>
-            <div id="conteudo-carta-detalhe">
-                </div>
+            <div id="conteudo-carta-detalhe"></div>
         </div>
     </div>
 
