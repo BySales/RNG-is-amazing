@@ -31,82 +31,6 @@ body {
 .info-perfil { display: flex; flex-direction: column; text-align: left; }
 #nome-jogador { font-weight: 700; font-size: 0.9rem; color: white; }
 
-/* --- PAINEL DE TIME FIXO (HUD ESTILO UNO - SUAVE) --- */
-#painel-time-fixo {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 1200px;
-    height: 140px; 
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0,0,0,0) 100%);
-    padding: 0;
-    z-index: 1000; 
-    display: flex;
-    justify-content: center;
-    align-items: flex-end; 
-    pointer-events: none; 
-}
-
-#painel-time-fixo h2 { display: none; }
-
-#painel-time-fixo .container-equipe {
-    display: flex;
-    justify-content: center;
-    align-items: flex-end; 
-    width: auto; 
-    padding-bottom: 10px; 
-    overflow: visible; 
-    pointer-events: auto; 
-}
-
-/* --- AS CARTAS NO LEQUE (MOTION DESIGN) --- */
-#painel-time-fixo .carta, 
-#painel-time-fixo .slot-vazio {
-    width: 100px; 
-    height: 150px;
-    margin-left: -30px; 
-    border-radius: 10px;
-    box-shadow: -2px 2px 10px rgba(0,0,0,0.8);
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    transform-origin: bottom center;
-    position: relative;
-    cursor: pointer;
-    background-color: #1a1c22; 
-    flex-shrink: 0;
-    border: 1px solid #444;
-    z-index: 1; 
-}
-
-#painel-time-fixo .carta:first-child, 
-#painel-time-fixo .slot-vazio:first-child {
-    margin-left: 0;
-}
-
-#painel-time-fixo .container-equipe > div:nth-child(1) { transform: rotate(-10deg) translateY(15px); }
-#painel-time-fixo .container-equipe > div:nth-child(2) { transform: rotate(-5deg) translateY(5px); }
-#painel-time-fixo .container-equipe > div:nth-child(3) { transform: rotate(0deg) translateY(0px); z-index: 5; } 
-#painel-time-fixo .container-equipe > div:nth-child(4) { transform: rotate(5deg) translateY(5px); }
-#painel-time-fixo .container-equipe > div:nth-child(5) { transform: rotate(10deg) translateY(15px); }
-
-#painel-time-fixo .carta:hover, 
-#painel-time-fixo .slot-vazio:hover {
-    transform: translateY(-50px) scale(1.25) rotate(0deg) !important; 
-    z-index: 100 !important; 
-    margin-right: 50px; 
-    margin-left: 20px;
-    border-color: #fca311;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.9), 0 0 20px rgba(252, 163, 17, 0.4); 
-}
-
-#painel-time-fixo .slot-vazio {
-    display: flex; justify-content: center; align-items: center; color: #555; font-size: 0.7rem; font-weight: bold;
-}
-#painel-time-fixo .carta .nome-carta-gradiente { font-size: 9px; padding-bottom: 2px; }
-#painel-time-fixo .carta .raridade-carta-gradiente { display: none; } 
-#painel-time-fixo .carta .renda-carta { display: none; } 
-
 
 /* --- ANIMAÇÃO DE ABERTURA (VFX SUSPENSE) --- */
 .conteudo-abertura { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; }
@@ -302,3 +226,125 @@ body {
     box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3);
     border-top: none; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
 }
+/* --- FILTROS DO ÁLBUM --- */
+.area-filtros { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-bottom: 20px; }
+.btn-filtro { background: #252930; border: 1px solid #444; color: #aaa; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+.btn-filtro:hover { background: #333; color: #fff; }
+.btn-filtro.active { background: #fca311; color: #1a1c22; border-color: #fca311; font-weight: 700; box-shadow: 0 0 10px rgba(252, 163, 17, 0.3); }
+
+/* Divisórias dos Pacotes */
+.titulo-set { width: 100%; text-align: left; border-bottom: 2px solid #333; margin: 30px 0 15px 0; padding-bottom: 5px; color: #e0aaff; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; }
+.grid-album-set { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 10px; }
+
+/* --- TOOLTIP AVANÇADO (GRID MAIOR) --- */
+.pacote-container { position: relative; display: inline-block; margin: 5px; }
+
+.tooltip-info {
+    visibility: hidden;
+    width: 340px; /* AUMENTEI AQUI: De 240px pra 340px (Imagens maiores) */
+    background-color: #1a1c22;
+    color: #fff;
+    text-align: left;
+    border-radius: 10px;
+    padding: 15px; /* Um pouco mais de respiro */
+    position: absolute;
+    z-index: 1000;
+    bottom: 115%; 
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.9); /* Sombra mais forte pra destacar */
+    border: 2px solid #444;
+    font-size: 0.8rem; /* Fonte um pouco maior também */
+    pointer-events: none; 
+}
+
+.pacote-container:hover .tooltip-info {
+    visibility: visible;
+    opacity: 1;
+    bottom: 125%; 
+}
+
+.tooltip-titulo { 
+    color: #fff; 
+    font-weight: 800; 
+    border-bottom: 2px solid #444; 
+    margin-bottom: 10px; 
+    padding-bottom: 8px; 
+    text-align: center; 
+    text-transform: uppercase; 
+    letter-spacing: 1px; 
+    font-size: 0.9rem;
+}
+
+/* --- GRID DE CARTAS --- */
+.tooltip-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* Mantém 4 colunas */
+    gap: 8px; /* Aumentei o espaço entre elas */
+    max-height: 400px; /* Dei mais altura pra caber de boa */
+    overflow-y: auto;
+    padding: 5px;
+}
+
+/* Estilo da Caixinha da Carta */
+.tooltip-card-box {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2/3; 
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #444; 
+    background-color: #000;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+}
+
+.tooltip-card-box:hover {
+    transform: scale(1.15); /* Zoom maior no hover */
+    z-index: 10;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+    border-color: #fff !important; /* Borda branca ao passar o mouse */
+}
+
+/* A Imagem */
+.tooltip-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* EFEITO CINZA (BLOQUEADO) */
+.tooltip-card-box.locked .tooltip-card-img {
+    filter: grayscale(100%) brightness(0.3); 
+}
+
+/* Porcentagem */
+.tooltip-card-chance {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    font-size: 0.75rem; /* Aumentei a fonte da % */
+    font-weight: 800;
+    text-align: center;
+    padding: 3px 0;
+    z-index: 2;
+}
+
+/* Scrollbar Bonitinha pro Tooltip */
+.tooltip-grid::-webkit-scrollbar { width: 6px; }
+.tooltip-grid::-webkit-scrollbar-track { background: #222; }
+.tooltip-grid::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+
+/* CORES DE BORDA */
+.borda-comum { border-color: #a8dadc; }
+.borda-incomum { border-color: #48dbfb; }
+.borda-raro { border-color: #457b9d; }
+.borda-épico { border-color: #a846a0; }
+.borda-lendário { border-color: #fca311; }
+.borda-mítico { border-color: #e63946; }
+.borda-secreto { border-color: #fff; box-shadow: 0 0 8px #fff; }

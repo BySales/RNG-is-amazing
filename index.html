@@ -58,18 +58,6 @@
                     
                     <div id="area-pacotes" class="area-botoes" style="min-height: 50px;">
                         </div>
-
-                    <div class="area-botoes" style="justify-content: center; margin-top: 10px; border-top: 1px solid #444; padding-top: 15px;">
-                        <span style="color:#aaa; align-self:center; margin-right:10px; font-size: 0.9rem;">Modo Automático:</span>
-                        <button id="auto-abrir-pacote" class="botao-acao">Iniciar</button>
-                        <button id="stop-auto-abrir" class="botao-perigo" disabled>Parar</button>
-                        <select id="quantidade-auto-abrir" style="padding: 5px; background: #222; color: white; border: 1px solid #555; border-radius: 5px;">
-                            <option value="1">x1</option>
-                            <option value="5">x5</option>
-                            <option value="10">x10</option>
-                            <option value="999">Tudo</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div class="divisor"></div>
@@ -80,11 +68,6 @@
                 </div>
 
                 <div style="height: 350px;"></div> 
-
-                <div id="painel-time-fixo">
-                    <div id="area-equipe-home" class="container-equipe">
-                        </div>
-                </div>
 
             </section>
 
@@ -148,7 +131,18 @@
             </section>
 
             <section id="tela-album" class="tela-escondida">
-                <h2>Coleção Completa</h2>
+                <h2>📚 Coleção Completa</h2>
+                
+                <div id="controles-album" class="area-filtros">
+                    <button class="btn-filtro active" onclick="mudarFiltroAlbum('Todos')">Todos</button>
+                    <button class="btn-filtro" onclick="mudarFiltroAlbum('Comum')">Comum</button>
+                    <button class="btn-filtro" onclick="mudarFiltroAlbum('Raro')">Raro</button>
+                    <button class="btn-filtro" onclick="mudarFiltroAlbum('Épico')">Épico</button>
+                    <button class="btn-filtro" onclick="mudarFiltroAlbum('Lendário')">Lendário</button>
+                    <button class="btn-filtro" onclick="mudarFiltroAlbum('Mítico')">Mítico</button>
+                    <button class="btn-filtro" onclick="mudarFiltroAlbum('Secreto')">Secreto</button>
+                </div>
+
                 <div id="area-album"></div>
             </section>
 

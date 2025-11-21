@@ -1,3 +1,13 @@
+// script.js
+
+// --- HELPER: FORMATADOR DE NÚMEROS (K, M, B) ---
+function formatarNumero(num) {
+    if (num >= 1000000000) return (num / 1000000000).toFixed(2) + 'B';
+    if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return Math.floor(num).toString();
+}
+
 window.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. ELEMENTOS DOM ---
@@ -23,7 +33,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const areaAlbum = document.getElementById('area-album');
     const areaEquipe = document.getElementById('area-equipe');
     const containerNotificacoes = document.getElementById('container-notificacoes');
-    const areaEquipeHome = document.getElementById('area-equipe-home');
+    // REMOVIDO: const areaEquipeHome = document.getElementById('area-equipe-home');
 
     const mostradorGrana = document.getElementById('valor-grana');
     const mostradorRenda = document.getElementById('valor-renda');
@@ -54,30 +64,53 @@ window.addEventListener('DOMContentLoaded', () => {
     const btnToggleMercado = document.getElementById('btn-toggle-mercado');
     const containerMercado = document.getElementById('container-mercado');
 
-    const autoAbrirBtn = document.getElementById('auto-abrir-pacote');
-    const stopAutoAbrirBtn = document.getElementById('stop-auto-abrir');
-    const qtdAutoAbrirSelect = document.getElementById('quantidade-auto-abrir');
-
-    // --- 2. CONFIG ---
-    const CONFIG = {
-        custoNormal: 100,
-        custoDesconto: 35,
-        tempoRefreshLoja: 15 * 60 * 1000,
-        tamanhoMaxEquipe: 5
+    // --- 2. CONFIGURAÇÃO MATEMÁTICA ---
+    const MATH_CONFIG = {
+        maxNivel: 60, 
+        baseRenda: { 'comum': 1, 'incomum': 3, 'raro': 8, 'épico': 40, 'lendário': 250, 'mítico': 1000, 'secreto': 5000 },
+        multiplicadorRenda: { 'comum': 1.30, 'incomum': 1.32, 'raro': 1.35, 'épico': 1.40, 'lendário': 1.50, 'mítico': 1.60, 'secreto': 1.80 },
+        multiplicadorZona: 2.0, 
+        baseCustoMoney: { 'comum': 50, 'incomum': 120, 'raro': 250, 'épico': 1500, 'lendário': 10000, 'mítico': 50000, 'secreto': 250000 },
+        multiplicadorCusto: 1.6, 
+        baseCustoCartas: 1
     };
-    const CUSTOS_UPGRADE = { 1: 2, 2: 4, 3: 8, 4: 10 };
-    const NIVEL_MAXIMO = 5;
-    const PRECOS_VENDA = { 'comum': 1, 'raro': 5, 'épico': 20, 'lendário': 50, 'mítico': 100, 'secreto': 250 };
-    const PRECOS_LOJA = { 'comum': 500, 'raro': 2500, 'épico': 10000, 'lendário': 75000, 'mítico': 500000, 'secreto': 2000000 };
-    const RENDAS_BASE = { 'comum': 1, 'raro': 5, 'épico': 15, 'lendário': 50, 'mítico': 150, 'secreto': 500 };
 
+    const CONFIG = {
+        tamanhoMaxEquipe: 5,
+        tempoRefreshLoja: 15 * 60 * 1000
+    };
+
+    // --- FUNÇÕES DE CÁLCULO ---
+    function getRendaCarta(carta) {
+        const r = carta.raridade.toLowerCase();
+        const base = MATH_CONFIG.baseRenda[r] || 1;
+        const multRaridade = MATH_CONFIG.multiplicadorRenda[r] || 1.3;
+        const fatorZona = Math.pow(MATH_CONFIG.multiplicadorZona, (carta.zona || 1) - 1);
+        return base * fatorZona * Math.pow(multRaridade, carta.nivel - 1);
+    }
+
+    function getCustoUpgradeMoney(raridade, nivel) {
+        const base = MATH_CONFIG.baseCustoMoney[raridade.toLowerCase()] || 50;
+        return Math.floor(base * Math.pow(MATH_CONFIG.multiplicadorCusto, nivel));
+    }
+
+    function getCustoUpgradeCartas(nivel) {
+        return Math.floor((nivel + 1) * MATH_CONFIG.baseCustoCartas);
+    }
+    
+    function getPrecoVenda(raridade) {
+         const base = { 'comum': 5, 'incomum': 10, 'raro': 20, 'épico': 100, 'lendário': 500, 'mítico': 2500, 'secreto': 10000 };
+         return base[raridade.toLowerCase()] || 1;
+    }
+
+    // --- ESTADO DO JOGO ---
     window.estadoJogo = {
         grana: 0,
+        sorte: 0,
         inventario: {},
         pacotes: {},
         equipe: [],
-        primeiraCompra: true,
-        nivelPacote: 1,
+        upgradesComprados: [],
         zonasDesbloqueadas: [1],
         zonaAtual: 1,            
         perfil: { nome: "Visitante", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mandrake" },
@@ -89,19 +122,20 @@ window.addEventListener('DOMContentLoaded', () => {
     window.salvar = salvar;
     window.mostrarNotificacao = mostrarNotificacao;
     let rendaPorSegundo = 0;
-    let autoAbrirInterval = null;
     let pacoteAtualSendoAberto = null;
 
     // --- 3. PERSISTÊNCIA ---
-    function salvar() { localStorage.setItem('rng_estado_v2', JSON.stringify(window.estadoJogo)); }
+    function salvar() { localStorage.setItem('rng_estado_v7', JSON.stringify(window.estadoJogo)); }
     function carregar() {
-        const salvo = localStorage.getItem('rng_estado_v2');
+        const salvo = localStorage.getItem('rng_estado_v7');
         if (salvo) {
             try {
                 const carregado = JSON.parse(salvo);
                 window.estadoJogo = { ...window.estadoJogo, ...carregado };
                 if (!window.estadoJogo.inventario) window.estadoJogo.inventario = {};
                 if (!window.estadoJogo.pacotes) window.estadoJogo.pacotes = {};
+                if (!window.estadoJogo.upgradesComprados) window.estadoJogo.upgradesComprados = [];
+                if (typeof window.estadoJogo.sorte === 'undefined') window.estadoJogo.sorte = 0;
             } catch (e) { console.error("Erro save:", e); }
         }
         if (!window.estadoJogo.zonasDesbloqueadas || window.estadoJogo.zonasDesbloqueadas.length === 0) window.estadoJogo.zonasDesbloqueadas = [1];
@@ -153,7 +187,7 @@ window.addEventListener('DOMContentLoaded', () => {
         tituloPacotesZona.innerText = `Pacotes de: ${zona.nome}`;
         if (bloqueada) {
             btnDesbloquearZona.style.display = 'inline-block';
-            btnDesbloquearZona.textContent = `Desbloquear ($${zona.custoDesbloqueio})`;
+            btnDesbloquearZona.textContent = `Desbloquear (${formatarNumero(zona.custoDesbloqueio)})`;
             btnDesbloquearZona.onclick = () => desbloquearZona(id);
             areaCompraZona.innerHTML = '<p style="color:#888; padding: 20px; text-align:center;">Vá ao Início e desbloqueie a zona para ver os pacotes.</p>';
         } else {
@@ -178,26 +212,91 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     seletorZona.addEventListener('change', atualizarInfoZona);
 
-    // --- 5. LOJA ---
+    // --- 5. LOJA COM TOOLTIP ---
     function renderizarLojaLocal(zona) {
         areaCompraZona.innerHTML = '';
-        const btn = document.createElement('button');
-        btn.className = 'botao-pacote';
-        const custo = window.estadoJogo.primeiraCompra ? CONFIG.custoDesconto : CONFIG.custoNormal;
-        const textoPreco = window.estadoJogo.primeiraCompra ? `Promoção (${custo})` : `Comprar (${custo})`;
-        btn.innerHTML = `Comprar [${zona.pacoteFoco}] <br><small>${textoPreco}</small>`;
-        if (window.estadoJogo.grana < custo) btn.disabled = true;
-        btn.onclick = () => comprarPacote(zona.pacoteFoco);
-        areaCompraZona.appendChild(btn);
+        zona.pacotes.forEach(pacote => {
+            const container = document.createElement('div');
+            container.className = 'pacote-container';
+
+            const btn = document.createElement('button');
+            btn.className = 'botao-pacote';
+            btn.dataset.custo = pacote.custo; 
+            btn.innerHTML = `${pacote.nome}<br><small>$${formatarNumero(pacote.custo)}</small>`;
+            
+            if (window.estadoJogo.grana < pacote.custo) btn.disabled = true;
+            
+            btn.onclick = () => comprarPacote(pacote.nome, pacote.id_interno, pacote.custo);
+            btn.style.margin = "0";
+            btn.style.minWidth = "120px";
+
+            // TOOLTIP
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip-info';
+            
+            const htmlCartas = gerarHtmlTooltipCartas(pacote.id_interno);
+            
+            tooltip.innerHTML = `
+                <div class="tooltip-titulo">Conteúdo</div>
+                <div class="tooltip-grid">${htmlCartas}</div>
+                <div style="margin-top:5px; color:#fca311; text-align:center; font-size:0.7rem;">
+                    Secreto: ???% <br> Sorte Atual: +${window.estadoJogo.sorte}
+                </div>
+            `;
+
+            container.appendChild(btn);
+            container.appendChild(tooltip);
+            areaCompraZona.appendChild(container);
+        });
+        atualizarBotoesLoja();
     }
 
-    function comprarPacote(nomeSet) {
-        const custo = window.estadoJogo.primeiraCompra ? CONFIG.custoDesconto : CONFIG.custoNormal;
+    // FUNÇÃO ATUALIZADA: GERA TOOLTIP COM CHECK DE BLOQUEIO
+    function gerarHtmlTooltipCartas(idPacote) {
+        const taxas = bancoTaxasDrop[idPacote] || bancoTaxasDrop["Padrao"];
+        let html = '';
+        
+        const raridades = ['Comum', 'Incomum', 'Raro', 'Épico', 'Lendário', 'Mítico'];
+        
+        raridades.forEach(raridade => {
+            const cartasPossiveis = bancoDeCartas.filter(c => c.pacote === idPacote && c.raridade === raridade);
+            const chanceTotalRaridade = taxas[raridade] || 0;
+            
+            if (cartasPossiveis.length > 0 && chanceTotalRaridade > 0) {
+                const chanceIndividual = chanceTotalRaridade / cartasPossiveis.length;
+                
+                cartasPossiveis.forEach(c => {
+                    // VERIFICA SE TEM A CARTA PRA APLICAR O CINZA
+                    const isLocked = !window.estadoJogo.inventario[c.id];
+                    const classeLocked = isLocked ? 'locked' : '';
+
+                    html += `
+                        <div class="tooltip-card-box ${classeLocked} borda-${raridade.toLowerCase()}" title="${c.nome}">
+                            <img src="${c.imagem}" class="tooltip-card-img">
+                            <span class="tooltip-card-chance">${chanceIndividual.toFixed(1)}%</span>
+                        </div>`;
+                });
+            }
+        });
+        return html;
+    }
+
+    function atualizarBotoesLoja() {
+        const botoes = document.querySelectorAll('.botao-pacote');
+        botoes.forEach(btn => {
+            const custo = parseInt(btn.dataset.custo);
+            if (!isNaN(custo)) {
+                btn.disabled = window.estadoJogo.grana < custo;
+            }
+        });
+    }
+
+    function comprarPacote(nomePacote, idInterno, custo) {
         if (window.estadoJogo.grana >= custo) {
             window.estadoJogo.grana -= custo;
-            if (window.estadoJogo.primeiraCompra) window.estadoJogo.primeiraCompra = false;
-            window.estadoJogo.pacotes[nomeSet] = (window.estadoJogo.pacotes[nomeSet] || 0) + 1;
-            mostrarNotificacao(`+1 Pacote ${nomeSet}`, "sucesso");
+            const chave = `${nomePacote}|${idInterno}`;
+            window.estadoJogo.pacotes[chave] = (window.estadoJogo.pacotes[chave] || 0) + 1;
+            mostrarNotificacao(`+1 ${nomePacote}`, "sucesso");
             salvar();
             atualizarDisplayGeral();
         } else {
@@ -205,48 +304,93 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderizarUpgrades() {
+        const area = document.getElementById('area-upgrades');
+        if(!area) return;
+        area.innerHTML = '';
+        bancoUpgrades.forEach(item => {
+            const comprado = window.estadoJogo.upgradesComprados.includes(item.id);
+            const div = document.createElement('div');
+            div.style = "background: #2a2d35; border: 1px solid #fca311; border-radius: 8px; padding: 15px; width: 140px; display: flex; flex-direction: column; align-items: center; gap: 5px;";
+            if(comprado) div.style.opacity = "0.5";
+            div.innerHTML = `
+                <div style="font-size: 2rem;">${item.icone}</div>
+                <strong style="font-size: 0.9rem; color: #fff;">${item.nome}</strong>
+                <p style="font-size: 0.7rem; color: #ccc; line-height: 1.2;">${item.desc}</p>
+                <button class="botao-acao" style="width: 100%; margin-top: auto; background: ${comprado ? '#555' : '#2a9d8f'}" 
+                    onclick="comprarUpgrade('${item.id}')" ${comprado ? 'disabled' : ''}>
+                    ${comprado ? 'Comprado' : '$ ' + formatarNumero(item.custo)}
+                </button>
+            `;
+            area.appendChild(div);
+        });
+    }
+
+    window.comprarUpgrade = function(id) {
+        const item = bancoUpgrades.find(u => u.id === id);
+        if(window.estadoJogo.grana >= item.custo) {
+            window.estadoJogo.grana -= item.custo;
+            window.estadoJogo.upgradesComprados.push(id);
+            
+            if(item.efeito === 'sorte_add') window.estadoJogo.sorte += item.valor;
+            if(item.efeito === 'chance_extra') window.estadoJogo.chanceExtra += item.valor;
+
+            salvar();
+            atualizarDisplayGeral();
+            mostrarNotificacao(`${item.nome} adquirido!`, "sucesso");
+        } else {
+            mostrarNotificacao("Sem verba, chefe!", "erro");
+        }
+    };
+
     // --- 6. ABERTURA DE PACOTES ---
     let animando = false;
-    function abrirPacote(nomeSet, isAuto = false) {
-        if (!isAuto && animando) return;
-        if (!window.estadoJogo.pacotes[nomeSet] || window.estadoJogo.pacotes[nomeSet] <= 0) {
-            if (isAuto) pararAutoAbrir("Estoque vazio.");
-            else mostrarNotificacao("Você não tem esse pacote.", "erro");
+    function abrirPacote(chavePacote) {
+        if (animando) return;
+        if (!window.estadoJogo.pacotes[chavePacote] || window.estadoJogo.pacotes[chavePacote] <= 0) {
+            mostrarNotificacao("Você não tem esse pacote.", "erro");
             return;
         }
 
-        pacoteAtualSendoAberto = nomeSet;
+        const [nomePacote, idInterno] = chavePacote.split('|');
+        pacoteAtualSendoAberto = idInterno;
         
-        animando = !isAuto;
-        window.estadoJogo.pacotes[nomeSet]--;
-        window.estadoJogo.pacotes[`${nomeSet}_aberto`] = (window.estadoJogo.pacotes[`${nomeSet}_aberto`] || 0) + 1;
+        animando = true;
+        window.estadoJogo.pacotes[chavePacote]--;
+        window.estadoJogo.pacotes[`${idInterno}_aberto`] = (window.estadoJogo.pacotes[`${idInterno}_aberto`] || 0) + 1;
         salvar();
-        if(!isAuto) atualizarDisplayPacotes();
+        atualizarDisplayPacotes();
         
-        let qtd = window.estadoJogo.nivelPacote >= 2 ? (window.estadoJogo.nivelPacote >= 3 ? 5 : 3) : 1;
+        let qtd = 1; 
         const cartasSorteadas = [];
-        for(let i=0; i<qtd; i++) cartasSorteadas.push(sortearCarta(nomeSet));
+        for(let i=0; i<qtd; i++) cartasSorteadas.push(sortearCarta(idInterno));
         
         if (window.estadoJogo.chanceExtra > 0 && Math.random() * 100 < window.estadoJogo.chanceExtra) {
-            cartasSorteadas.push(sortearCarta(nomeSet));
-            if(!isAuto) mostrarNotificacao("Bônus! +1 Carta", "info");
+            cartasSorteadas.push(sortearCarta(idInterno));
+            mostrarNotificacao("Bônus! +1 Carta", "info");
         }
 
         cartasSorteadas.forEach(c => {
             if (window.estadoJogo.inventario[c.id]) window.estadoJogo.inventario[c.id].quantidade++;
             else window.estadoJogo.inventario[c.id] = { ...c, quantidade: 1, nivel: 1 };
+
+            if (c.raridade === 'Secreto') {
+                const zonaDaCarta = c.zona || 1;
+                const proximaZona = zonaDaCarta + 1;
+                const zonaExiste = bancoZonas.find(z => z.id === proximaZona);
+                const jaDesbloqueada = window.estadoJogo.zonasDesbloqueadas.includes(proximaZona);
+                
+                if (zonaExiste && !jaDesbloqueada) {
+                    window.estadoJogo.zonasDesbloqueadas.push(proximaZona);
+                    mostrarNotificacao(`💎 SORTE GRANDE! Zona ${proximaZona} liberada de graça!`, "sucesso");
+                    salvar();
+                }
+            }
         });
 
         salvar();
         atualizarRenda();
-
-        if (isAuto) {
-            const melhor = cartasSorteadas.sort((a,b) => getRaridadeValor(b.raridade) - getRaridadeValor(a.raridade))[0];
-            renderizarCartaResultado(melhor, 0, true);
-            animando = false;
-        } else {
-            iniciarCinematica(cartasSorteadas);
-        }
+        iniciarCinematica(cartasSorteadas);
         atualizarDisplayInventario();
     }
 
@@ -268,9 +412,12 @@ window.addEventListener('DOMContentLoaded', () => {
         infoCartaAnimada.classList.add('tela-escondida');
         btnProximaCarta.classList.add('tela-escondida');
         
+        const cartasParaAnimacao = bancoDeCartas.filter(c => c.pacote === pacoteAtualSendoAberto && c.raridade !== "Secreto");
+        const poolFinal = cartasParaAnimacao.length > 0 ? cartasParaAnimacao : bancoDeCartas;
+        
         let loops = 0;
         const intervalo = setInterval(() => {
-            const randomCard = bancoDeCartas[Math.floor(Math.random() * bancoDeCartas.length)];
+            const randomCard = poolFinal[Math.floor(Math.random() * poolFinal.length)];
             imgCartaAnimada.src = randomCard.imagem;
             loops++;
             if (loops >= 15) {
@@ -302,43 +449,62 @@ window.addEventListener('DOMContentLoaded', () => {
             } else {
                 tituloAbertura.innerText = "Pacote Finalizado!";
                 btnFecharAbertura.classList.remove('tela-escondida');
-                if (window.estadoJogo.pacotes[pacoteAtualSendoAberto] > 0) {
-                    btnAbrirOutro.classList.remove('tela-escondida');
-                    btnAbrirOutro.innerText = `Abrir Outro (${window.estadoJogo.pacotes[pacoteAtualSendoAberto]})`;
-                }
                 animando = false;
             }
         }, 500);
     }
 
     btnProximaCarta.onclick = () => mostrarProximaCartaDaFila();
-    btnFecharAbertura.onclick = () => { modalAbertura.classList.add('tela-escondida'); mostrarTela('inicio'); atualizarDisplayGeral(); };
-    btnAbrirOutro.onclick = () => { if (pacoteAtualSendoAberto) { btnAbrirOutro.classList.add('tela-escondida'); btnFecharAbertura.classList.add('tela-escondida'); abrirPacote(pacoteAtualSendoAberto, false); } };
+    
+    btnFecharAbertura.onclick = () => { 
+        modalAbertura.classList.add('tela-escondida'); 
+        document.getElementById('area-compra-zona').innerHTML = '';
+        mostrarTela('inicio'); 
+        atualizarDisplayGeral(); 
+    };
 
-    function sortearCarta(set) {
-        const raridade = rolarRaridade();
-        const pool = bancoDeCartas.filter(c => c.set === set && c.raridade === raridade);
+    function sortearCarta(idPacote) {
+        const raridade = rolarRaridade(idPacote);
+        const pool = bancoDeCartas.filter(c => c.pacote === idPacote && c.raridade === raridade);
         if (pool.length === 0) {
-            const poolComum = bancoDeCartas.filter(c => c.set === set && c.raridade === "Comum");
-            if(poolComum.length === 0) return bancoDeCartas[0];
+            const poolComum = bancoDeCartas.filter(c => c.pacote === idPacote && c.raridade === "Comum");
+            if(poolComum.length === 0) return bancoDeCartas[0]; 
             return {...poolComum[Math.floor(Math.random() * poolComum.length)]};
         }
         return {...pool[Math.floor(Math.random() * pool.length)]};
     }
 
-    function rolarRaridade() {
+    function rolarRaridade(idPacote) {
+        const taxas = bancoTaxasDrop[idPacote] || bancoTaxasDrop["Padrao"];
+        const sorte = window.estadoJogo.sorte || 0;
         const r = Math.random() * 100;
-        if (r <= 60) return "Comum";
-        if (r <= 85) return "Raro";
-        if (r <= 95) return "Épico";
-        if (r <= 99) return "Lendário";
-        if (r <= 99.9) return "Mítico";
+        let acumulado = 0;
+        
+        acumulado += taxas["Comum"];
+        if (r <= acumulado) {
+            if (Math.random() * 100 < sorte) return "Incomum"; 
+            return "Comum";
+        }
+        
+        acumulado += taxas["Incomum"] || 0;
+        if (r <= acumulado) {
+            if (Math.random() * 100 < (sorte * 0.8)) return "Raro";
+            return "Incomum";
+        }
+
+        acumulado += taxas["Raro"];
+        if (r <= acumulado) {
+            if (Math.random() * 100 < (sorte * 0.5)) return "Épico";
+            return "Raro";
+        }
+        
+        acumulado += taxas["Épico"];
+        if (r <= acumulado) return "Épico";
+        acumulado += taxas["Lendário"];
+        if (r <= acumulado) return "Lendário";
+        acumulado += taxas["Mítico"];
+        if (r <= acumulado) return "Mítico";
         return "Secreto";
-    }
-    
-    function getRaridadeValor(r) {
-        const mapa = { 'Comum':1, 'Raro':2, 'Épico':3, 'Lendário':4, 'Mítico':5, 'Secreto':6 };
-        return mapa[r] || 0;
     }
 
     function renderizarCartaResultado(c, delay, clean) {
@@ -352,16 +518,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // --- UI UPDATES ---
     function atualizarDisplayGeral() {
-        mostradorGrana.innerText = Math.floor(window.estadoJogo.grana);
+        mostradorGrana.innerText = formatarNumero(window.estadoJogo.grana);
         atualizarRenda();
         atualizarDisplayPacotes();
+        renderizarUpgrades();
+        
         const zonaAtualObj = bancoZonas.find(z => z.id === window.estadoJogo.zonaAtual);
         if (zonaAtualObj && window.estadoJogo.zonasDesbloqueadas.includes(window.estadoJogo.zonaAtual)) {
-            renderizarLojaLocal(zonaAtualObj);
+            if(areaCompraZona.children.length === 0) renderizarLojaLocal(zonaAtualObj);
+            else atualizarBotoesLoja();
         }
+
         document.getElementById('nome-jogador').innerText = window.estadoJogo.perfil.nome;
         document.getElementById('img-avatar-mini').src = window.estadoJogo.perfil.avatar;
-        renderizarEquipeHome();
         atualizarDisplayEquipe();
     }
     
@@ -369,45 +538,33 @@ window.addEventListener('DOMContentLoaded', () => {
         let total = 0;
         window.estadoJogo.equipe.forEach(id => {
             const c = window.estadoJogo.inventario[id];
-            if(c) total += (RENDAS_BASE[c.raridade.toLowerCase()] || 0) * c.nivel;
+            if(c) total += getRendaCarta(c);
         });
-        mostradorRenda.textContent = total;
+
+        const temCorrente = window.estadoJogo.upgradesComprados.includes('upg_renda_1');
+        if (temCorrente) total = total * 1.10;
+
+        mostradorRenda.textContent = formatarNumero(total);
         rendaPorSegundo = total;
     }
 
     function atualizarDisplayPacotes() {
         areaPacotes.innerHTML = '';
         let temPacote = false;
-        for (const [nomeSet, qtd] of Object.entries(window.estadoJogo.pacotes)) {
-            if (qtd > 0 && !nomeSet.includes('_aberto')) {
+        for (const [chave, qtd] of Object.entries(window.estadoJogo.pacotes)) {
+            if (qtd > 0 && !chave.includes('_aberto')) {
                 temPacote = true;
+                const [nomePacote, idInterno] = chave.split('|');
                 const btn = document.createElement('button');
                 btn.className = 'botao-abrir-pacote';
-                btn.innerHTML = `Abrir [${nomeSet}] <span>(x${qtd})</span>`;
-                btn.onclick = () => abrirPacote(nomeSet);
+                btn.innerHTML = `Abrir ${nomePacote} <span>(x${qtd})</span>`;
+                btn.onclick = () => abrirPacote(chave);
                 areaPacotes.appendChild(btn);
             }
         }
-        if(!temPacote) areaPacotes.innerHTML = '<p style="color:#555; font-size:0.8rem">Nenhum pacote.</p>';
+        if(!temPacote) areaPacotes.innerHTML = '<p style="color:#555; font-size:0.8rem">Nenhum pacote no inventário.</p>';
     }
     
-    function renderizarEquipeHome() {
-        areaEquipeHome.innerHTML = '';
-        for(let i=0; i<CONFIG.tamanhoMaxEquipe; i++) {
-            const id = window.estadoJogo.equipe[i];
-            if(id && window.estadoJogo.inventario[id]) {
-                const c = window.estadoJogo.inventario[id];
-                const div = document.createElement('div');
-                div.className = `carta ${c.raridade.toLowerCase()} inventario`;
-                div.innerHTML = `<img src="${c.imagem}" class="imagem-carta"><div class="area-info-gradiente"><span class="nome-carta-gradiente">${c.nome}</span><span class="renda-carta">Lvl ${c.nivel}</span></div>`;
-                div.onclick = () => abrirDetalheCarta(c.id);
-                areaEquipeHome.appendChild(div);
-            } else {
-                areaEquipeHome.innerHTML += `<div class="slot-vazio">Vazio</div>`;
-            }
-        }
-    }
-
     function atualizarDisplayEquipe() {
         areaEquipe.innerHTML = '';
         contadorEquipe.innerText = `(${window.estadoJogo.equipe.length}/${CONFIG.tamanhoMaxEquipe})`;
@@ -433,9 +590,10 @@ window.addEventListener('DOMContentLoaded', () => {
         lista.forEach(c => {
             const div = document.createElement('div');
             div.className = `carta ${c.raridade.toLowerCase()} inventario`;
-            const custoUp = CUSTOS_UPGRADE[c.nivel];
-            const max = c.nivel >= NIVEL_MAXIMO;
-            const podeUpar = !max && c.quantidade > custoUp;
+            const isMax = c.nivel >= MATH_CONFIG.maxNivel;
+            const custoCartas = getCustoUpgradeCartas(c.nivel);
+            const custoMoney = getCustoUpgradeMoney(c.raridade, c.nivel);
+            const podeUpar = !isMax && c.quantidade > custoCartas && window.estadoJogo.grana >= custoMoney;
             const estaEquipada = window.estadoJogo.equipe.includes(c.id.toString());
             div.innerHTML = `
                 <img src="${c.imagem}" class="imagem-carta">
@@ -447,7 +605,10 @@ window.addEventListener('DOMContentLoaded', () => {
                     ${!estaEquipada ? 
                         `<button class="btn-equipar" onclick="equipar(${c.id})">Equipar</button>` : 
                         `<button class="btn-equipar btn-remover" onclick="remover(${c.id})">Remover</button>`}
-                    ${!max ? `<button class="btn-upar" ${podeUpar?'':'disabled'} onclick="upar(${c.id})">Upar (${custoUp})</button>` : ''}
+                    ${isMax 
+                        ? `<button class="btn-upar" disabled style="background:#444; color:#888;">MAX (Lvl 60)</button>` 
+                        : `<button class="btn-upar" ${podeUpar?'':'disabled'} onclick="upar(${c.id})">Upar ($${formatarNumero(custoMoney)} + ${custoCartas}📦)</button>`
+                    }
                 </div>`;
             div.onclick = (e) => { if(e.target === div || e.target.classList.contains('imagem-carta')) abrirDetalheCarta(c.id); };
             areaInventario.appendChild(div);
@@ -466,14 +627,26 @@ window.addEventListener('DOMContentLoaded', () => {
         window.estadoJogo.equipe = window.estadoJogo.equipe.filter(e => e !== id.toString());
         salvar(); atualizarRenda(); atualizarDisplayGeral(); atualizarDisplayInventario();
     };
+    
     window.upar = function(id) {
         const c = window.estadoJogo.inventario[id];
-        const custo = CUSTOS_UPGRADE[c.nivel];
-        if(c.quantidade > custo) {
-            c.quantidade -= custo;
+        if (c.nivel >= MATH_CONFIG.maxNivel) {
+            return mostrarNotificacao("Nível Máximo (60) atingido!", "info");
+        }
+        const custoCartas = getCustoUpgradeCartas(c.nivel);
+        const custoMoney = getCustoUpgradeMoney(c.raridade, c.nivel);
+        if(c.quantidade > custoCartas && window.estadoJogo.grana >= custoMoney) {
+            c.quantidade -= custoCartas;
+            window.estadoJogo.grana -= custoMoney;
             c.nivel++;
-            salvar(); atualizarRenda(); atualizarDisplayGeral(); atualizarDisplayInventario();
-            mostrarNotificacao(`Level Up!`, "sucesso");
+            salvar(); 
+            atualizarRenda(); 
+            atualizarDisplayGeral(); 
+            atualizarDisplayInventario();
+            mostrarNotificacao(`Level Up! ${c.nivel}/${MATH_CONFIG.maxNivel}`, "sucesso");
+        } else {
+            if(window.estadoJogo.grana < custoMoney) mostrarNotificacao(`Grana insuficiente! (${formatarNumero(custoMoney)})`, "erro");
+            else mostrarNotificacao(`Cartas insuficientes! (+${custoCartas})`, "erro");
         }
     };
 
@@ -481,15 +654,15 @@ window.addEventListener('DOMContentLoaded', () => {
         let totalGrana = 0, totalCartas = 0;
         for (const id in window.estadoJogo.inventario) {
             const c = window.estadoJogo.inventario[id];
-            const custo = CUSTOS_UPGRADE[c.nivel];
-            const max = (c.nivel >= NIVEL_MAXIMO || !custo);
+            const custo = getCustoUpgradeCartas(c.nivel);
+            const max = c.nivel >= MATH_CONFIG.maxNivel;
             let excesso = 0;
             if (c.quantidade > 1) {
                 if (max) excesso = c.quantidade - 1;
                 else if (c.quantidade > custo) excesso = c.quantidade - (custo + 1);
             }
             if (excesso > 0) {
-                const preco = PRECOS_VENDA[c.raridade.toLowerCase()] || 1;
+                const preco = getPrecoVenda(c.raridade);
                 totalGrana += preco * excesso;
                 totalCartas += excesso;
                 window.estadoJogo.inventario[id].quantidade -= excesso;
@@ -498,14 +671,14 @@ window.addEventListener('DOMContentLoaded', () => {
         if (totalCartas > 0) {
             window.estadoJogo.grana += totalGrana;
             salvar(); atualizarDisplayGeral(); atualizarDisplayInventario();
-            mostrarNotificacao(`Vendeu ${totalCartas} cartas por $${totalGrana}!`, "sucesso");
+            mostrarNotificacao(`Vendeu ${totalCartas} cartas por $${formatarNumero(totalGrana)}!`, "sucesso");
         } else {
             mostrarNotificacao("Nada para vender.", "info");
         }
     });
 
     btnLimparInventario.onclick = () => {
-        if(confirm("ATENÇÃO: ISSO APAGA TUDO!")) { localStorage.removeItem('rng_estado_v2'); location.reload(); }
+        if(confirm("ATENÇÃO: ISSO APAGA TUDO!")) { localStorage.removeItem('rng_estado_v7'); location.reload(); }
     };
 
     if (btnToggleMercado && containerMercado) {
@@ -534,15 +707,37 @@ window.addEventListener('DOMContentLoaded', () => {
     function gerarNovaLojaDiaria() {
         window.estadoJogo.lojaDiaria.ofertas = [];
         window.estadoJogo.lojaDiaria.proximoRefresh = Date.now() + CONFIG.tempoRefreshLoja;
+        
+        const maxZonaJogador = Math.max(...window.estadoJogo.zonasDesbloqueadas);
+
         for(let i=0; i<6; i++) {
             let card;
-            if(Math.random() < 0.3) {
-                 const pool = bancoDeCartas.filter(c => c.set === 'Mercado Negro');
-                 card = pool[Math.floor(Math.random() * pool.length)];
+            const poolValida = bancoDeCartas.filter(c => {
+                if ((c.zona || 1) > maxZonaJogador) return false;
+                if (c.raridade === 'Secreto') return c.set === 'Mercado Negro';
+                return true; 
+            });
+
+            if (poolValida.length === 0) {
+                card = bancoDeCartas[0];
             } else {
-                 const pool = bancoDeCartas.filter(c => c.set !== 'Mercado Negro');
-                 card = pool[Math.floor(Math.random() * pool.length)];
+                if(Math.random() < 0.3) {
+                     const poolMN = poolValida.filter(c => c.set === 'Mercado Negro');
+                     if (poolMN.length > 0) {
+                         card = poolMN[Math.floor(Math.random() * poolMN.length)];
+                     } else {
+                         card = poolValida[Math.floor(Math.random() * poolValida.length)];
+                     }
+                } else {
+                     const poolGeral = poolValida.filter(c => c.set !== 'Mercado Negro');
+                     if (poolGeral.length > 0) {
+                        card = poolGeral[Math.floor(Math.random() * poolGeral.length)];
+                     } else {
+                        card = poolValida[Math.floor(Math.random() * poolValida.length)];
+                     }
+                }
             }
+
             if(!card) card = bancoDeCartas[0];
             window.estadoJogo.lojaDiaria.ofertas.push({ id: card.id, comprado: false });
         }
@@ -560,7 +755,12 @@ window.addEventListener('DOMContentLoaded', () => {
             div.className = 'item-loja';
             div.style.opacity = oferta.comprado ? 0.5 : 1;
             const tag = c.set === "Mercado Negro" ? '<span class="tag-exclusiva">⭐ Exclusiva</span>' : '';
-            const preco = PRECOS_LOJA[c.raridade.toLowerCase()] || 1000;
+            
+            const baseMercado = { 'comum': 500, 'incomum': 1200, 'raro': 2500, 'épico': 10000, 'lendário': 100000, 'mítico': 1000000, 'secreto': 5000000 };
+            const precoBase = baseMercado[c.raridade.toLowerCase()] || 999999;
+            const fatorZona = Math.pow(MATH_CONFIG.multiplicadorZona, (c.zona || 1) - 1);
+            const precoFinal = Math.floor(precoBase * fatorZona);
+
             div.innerHTML = `
                 <div class="carta ${c.raridade.toLowerCase()}" style="transform:scale(0.8); margin-bottom:-30px">
                     ${tag}
@@ -568,11 +768,12 @@ window.addEventListener('DOMContentLoaded', () => {
                     <div class="area-info-gradiente">
                         <span class="nome-carta-gradiente">${c.nome}</span>
                         <span class="raridade-carta-gradiente">[${c.raridade}]</span>
+                        <span style="font-size: 0.7rem; color: #aaa; display:block;">Zona ${c.zona || 1}</span>
                     </div>
                 </div>
                 <div style="text-align:center; width:100%">
-                     <span class="preco-carta">💰 ${preco}</span>
-                     <button class="btn-comprar-carta" onclick="comprarMercado(${idx}, ${preco})" ${oferta.comprado ? 'disabled' : ''}>${oferta.comprado ? 'Esgotado' : 'Comprar'}</button>
+                     <span class="preco-carta">💰 ${formatarNumero(precoFinal)}</span>
+                     <button class="btn-comprar-carta" onclick="comprarMercado(${idx}, ${precoFinal})" ${oferta.comprado ? 'disabled' : ''}>${oferta.comprado ? 'Esgotado' : 'Comprar'}</button>
                 </div>`;
             areaLojaDiaria.appendChild(div);
         });
@@ -586,30 +787,71 @@ window.addEventListener('DOMContentLoaded', () => {
             const c = obterCartaPorId(oferta.id);
             if(window.estadoJogo.inventario[c.id]) window.estadoJogo.inventario[c.id].quantidade++;
             else window.estadoJogo.inventario[c.id] = { ...c, quantidade: 1, nivel: 1 };
+            document.getElementById('area-compra-zona').innerHTML = '';
             salvar(); renderizarMercadoNegro(); atualizarDisplayGeral(); mostrarNotificacao("Comprado!", "sucesso");
         } else if (window.estadoJogo.grana < preco) {
             mostrarNotificacao("Sem grana!", "erro");
         }
     }
 
+    // FILTRO DO ÁLBUM
+    let filtroRaridadeAtual = 'Todos';
+    window.mudarFiltroAlbum = function(raridade) {
+        filtroRaridadeAtual = raridade;
+        document.querySelectorAll('.btn-filtro').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.innerText === raridade || (raridade === 'Todos' && btn.innerText === 'Todos')) {
+                btn.classList.add('active');
+            }
+        });
+        atualizarDisplayAlbum();
+    };
+
     function atualizarDisplayAlbum() {
         const areaAlbum = document.getElementById('area-album');
         areaAlbum.innerHTML = ''; 
-        bancoDeCartas.forEach(carta => {
-            const itemNoInventario = window.estadoJogo.inventario[carta.id];
-            const div = document.createElement('div');
-            div.className = 'carta'; 
-            if (itemNoInventario) {
-                div.classList.add(carta.raridade.toLowerCase());
-                const tag = carta.set === "Mercado Negro" ? '<span class="tag-exclusiva">⭐ Exclusiva</span>' : '';
-                div.innerHTML = `${tag}<img src="${carta.imagem}" class="imagem-carta"><span class="nivel-carta">Nvl. ${itemNoInventario.nivel}</span><div class="area-info-gradiente"><span class="nome-carta-gradiente">${carta.nome}</span><span class="raridade-carta-gradiente">[${carta.raridade}]</span></div>`;
-                div.onclick = () => abrirDetalheCarta(carta.id);
-            } else {
-                div.classList.add('escondida');
-                div.innerHTML = `<img src="${carta.imagem}" class="imagem-carta"><div class="area-info-gradiente"><span class="nome-carta-gradiente">??????</span><span class="raridade-carta-gradiente">[${carta.raridade}]</span></div>`;
+        const setsUnicos = [...new Set(bancoDeCartas.map(c => c.set))];
+        let achouAlgumaCarta = false;
+
+        setsUnicos.forEach(nomeSet => {
+            const cartasDoSet = bancoDeCartas.filter(c => 
+                c.set === nomeSet && 
+                (filtroRaridadeAtual === 'Todos' || c.raridade === filtroRaridadeAtual)
+            );
+
+            if (cartasDoSet.length > 0) {
+                achouAlgumaCarta = true;
+                const titulo = document.createElement('h3');
+                titulo.className = 'titulo-set';
+                titulo.innerText = `📦 ${nomeSet}`;
+                areaAlbum.appendChild(titulo);
+
+                const containerSet = document.createElement('div');
+                containerSet.className = 'grid-album-set';
+
+                cartasDoSet.forEach(carta => {
+                    const itemNoInventario = window.estadoJogo.inventario[carta.id];
+                    const div = document.createElement('div');
+                    div.className = 'carta'; 
+                    
+                    if (itemNoInventario) {
+                        div.classList.add(carta.raridade.toLowerCase());
+                        const tag = carta.set === "Mercado Negro" ? '<span class="tag-exclusiva">⭐ Exclusiva</span>' : '';
+                        div.innerHTML = `${tag}<img src="${carta.imagem}" class="imagem-carta"><span class="nivel-carta">Nvl. ${itemNoInventario.nivel}</span><div class="area-info-gradiente"><span class="nome-carta-gradiente">${carta.nome}</span><span class="raridade-carta-gradiente">[${carta.raridade}]</span></div>`;
+                        div.onclick = () => abrirDetalheCarta(carta.id);
+                    } else {
+                        div.classList.add('escondida');
+                        div.innerHTML = `<img src="${carta.imagem}" class="imagem-carta"><div class="area-info-gradiente"><span class="nome-carta-gradiente">??????</span><span class="raridade-carta-gradiente">[${carta.raridade}]</span></div>`;
+                    }
+                    containerSet.appendChild(div);
+                });
+                areaAlbum.appendChild(containerSet);
             }
-            areaAlbum.appendChild(div);
         });
+
+        if (!achouAlgumaCarta) {
+            areaAlbum.innerHTML = '<p style="color:#777; padding:30px;">Nenhuma carta encontrada com esse filtro.</p>';
+        }
     }
 
     function renderizarMetas() {
@@ -654,36 +896,20 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    function iniciarAutoAbrir() {
-        const qtd = parseInt(qtdAutoAbrirSelect.value);
-        const zona = bancoZonas.find(z => z.id === window.estadoJogo.zonaAtual);
-        if (!zona) return;
-        const set = zona.pacoteFoco;
-        let disponivel = window.estadoJogo.pacotes[set] || 0;
-        let restante = qtd === 999 ? disponivel : Math.min(qtd, disponivel);
-        if(restante <= 0) return mostrarNotificacao("Sem pacotes!", "erro");
-
-        autoAbrirBtn.disabled = true;
-        stopAutoAbrirBtn.disabled = false;
-        mostrarTela('inicio');
-
-        autoAbrirInterval = setInterval(() => {
-            if(restante > 0) { abrirPacote(set, true); restante--; } 
-            else { clearInterval(autoAbrirInterval); autoAbrirBtn.disabled = false; stopAutoAbrirBtn.disabled = true; mostrarNotificacao("Concluído", "info"); }
-        }, 500);
-    }
-    autoAbrirBtn.addEventListener('click', iniciarAutoAbrir);
-    stopAutoAbrirBtn.addEventListener('click', () => { clearInterval(autoAbrirInterval); autoAbrirBtn.disabled = false; stopAutoAbrirBtn.disabled = true; });
-
     function mostrarTela(nome) {
         Object.values(telas).forEach(t => { t.classList.add('tela-escondida'); t.classList.remove('tela-ativa'); });
         telas[nome].classList.remove('tela-escondida');
         telas[nome].classList.add('tela-ativa');
         navBtns.forEach(b => b.classList.remove('active'));
         document.getElementById('nav-'+nome).classList.add('active');
+        window.scrollTo(0, 0);
     }
 
-    document.getElementById('nav-loja').onclick = () => mostrarTela('loja');
+    document.getElementById('nav-loja').onclick = () => {
+        document.getElementById('area-compra-zona').innerHTML = '';
+        mostrarTela('loja');
+        atualizarDisplayGeral();
+    };
     document.getElementById('nav-inicio').onclick = () => mostrarTela('inicio');
     document.getElementById('nav-inventario').onclick = () => mostrarTela('inventario');
     document.getElementById('nav-album').onclick = () => { mostrarTela('album'); atualizarDisplayAlbum(); };
@@ -693,7 +919,8 @@ window.addEventListener('DOMContentLoaded', () => {
         if(rendaPorSegundo > 0) {
             window.estadoJogo.grana += rendaPorSegundo;
             salvar();
-            mostradorGrana.innerText = Math.floor(window.estadoJogo.grana);
+            mostradorGrana.innerText = formatarNumero(window.estadoJogo.grana);
+            if(!telas.loja.classList.contains('tela-escondida')) atualizarBotoesLoja();
         }
         bancoConquistas.forEach(cq => {
             if(!window.estadoJogo.conquistas.includes(cq.id) && cq.condicao()) {
